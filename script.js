@@ -275,10 +275,13 @@ function addNote() {
     
     let formattedDate = '';
     if (dateFull && dateFull.length === 8) {
-        const y = dateFull.substring(0, 4);
+        const y = parseInt(dateFull.substring(0, 4));
         const m = parseInt(dateFull.substring(4, 6));
         const d = parseInt(dateFull.substring(6, 8));
-        formattedDate = `${y}/${m}/${d}`;
+        
+        if (y > 0 && m > 0 && d > 0) {
+            formattedDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        }
     }
 
     const newNote = {
@@ -506,10 +509,16 @@ function makeDateEditable(id, el) {
             }
             
             // Validate and pad
-            if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
-                note.date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const numY = parseInt(y);
+            const numM = parseInt(m);
+            const numD = parseInt(d);
+            
+            if (!isNaN(numY) && numY > 0 && !isNaN(numM) && numM > 0 && !isNaN(numD) && numD > 0) {
+                note.date = `${numY}-${String(numM).padStart(2, '0')}-${String(numD).padStart(2, '0')}`;
+            } else {
+                note.date = '';
             }
-        } else if (newText === '' || newText === '日付なし' || newText === 'yyyy/mm/dd') {
+        } else {
             note.date = '';
         }
         

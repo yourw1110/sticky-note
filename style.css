@@ -196,6 +196,7 @@ body {
     border-radius: 4px;
     transition: background 0.2s;
     text-align: left;
+    cursor: text;
 }
 
 .note-title-text[contenteditable="true"] {
