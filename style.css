@@ -531,7 +531,7 @@ body {
 
 .modal-content h2 {
     margin-bottom: 24px;
-    font-size: calc(1.5rem - 3px);
+    font-size: calc(1.5rem - 5px);
 }
 
 .input-group {
