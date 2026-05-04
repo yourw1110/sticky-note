@@ -45,7 +45,7 @@ function createNoteElement(note) {
     if (note.date) {
         const parts = note.date.split(/[-/.]/);
         if (parts.length === 3) {
-            formattedDate = `${parts[0]}/${parseInt(parts[1])}/${parseInt(parts[2])}`;
+            formattedDate = `${parseInt(parts[1])}/${parseInt(parts[2])}`;
         } else if (parts.length === 2) {
             formattedDate = `${parseInt(parts[0])}/${parseInt(parts[1])}`;
         } else {
