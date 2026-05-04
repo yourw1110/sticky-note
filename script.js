@@ -287,7 +287,7 @@ function addNote() {
     const newNote = {
         id: Date.now(),
         type: currentType,
-        title: title || (currentType === 'memo' ? 'メモ' : 'TODO'),
+        title: title || (currentType === 'memo' ? 'MEMO' : 'TODO'),
         date: formattedDate,
         content: currentType === 'memo' ? '' : '',
         todos: currentType === 'todo' ? [] : [],
