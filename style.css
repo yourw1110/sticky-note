@@ -531,7 +531,7 @@ body {
 
 .modal-content h2 {
     margin-bottom: 24px;
-    font-size: 1.5rem;
+    font-size: calc(1.5rem - 2px);
 }
 
 .input-group {
@@ -563,7 +563,7 @@ body {
 }
 
 .date-input-group input {
-    width: 80px !important;
+    width: 120px !important;
     text-align: center;
 }
 
