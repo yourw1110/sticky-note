@@ -1,0 +1,17 @@
+{
+  "name": "Sticky note",
+  "short_name": "Sticky",
+  "description": "A stylish and functional sticky note application.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#00b894",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

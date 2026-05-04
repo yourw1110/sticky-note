@@ -1,0 +1,671 @@
+:root {
+    --bg-color: #f8f9fa;
+    --text-color: #333;
+    --header-bg: rgba(255, 255, 255, 0.8);
+    --primary-color: #00b894;
+    /* Teal */
+    --secondary-color: #55efc4;
+
+    /* Pastel Palette */
+    --pastel-yellow: #fff9c4;
+    --pastel-pink: #f8bbd0;
+    --pastel-blue: #b3e5fc;
+    --pastel-green: #c8e6c9;
+    --pastel-gray: #dfdfdf; /* Light gray as requested */
+
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --radius: 12px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    overflow: hidden;
+    /* We'll handle scrolling within the board or just let it be infinite */
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Header */
+.app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: var(--header-bg);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    z-index: 1000;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo i {
+    color: var(--primary-color);
+}
+
+.logo h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.controls {
+    display: flex;
+    gap: 12px;
+}
+
+.icon-btn {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.icon-btn:hover {
+    background: #f0f0f0;
+    transform: translateY(-1px);
+}
+
+.icon-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.icon-btn.danger-btn {
+    background: #fff5f5;
+    color: #e74c3c;
+    border-color: rgba(231, 76, 60, 0.2);
+}
+
+.icon-btn.danger-btn:hover {
+    background: #e74c3c;
+    color: white;
+}
+
+/* Board */
+.board {
+    width: 100%;
+    height: 100%;
+    padding-top: 80px;
+    position: relative;
+    overflow: auto;
+    background-image:
+        radial-gradient(#ddd 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
+/* Sticky Note */
+.sticky-note {
+    position: absolute;
+    min-width: 240px;
+    min-height: 240px;
+    background: white;
+    padding: 24px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    cursor: move;
+    /* More stylish than grab */
+    transition: box-shadow 0.2s, transform 0.2s;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    overflow: hidden;
+    outline: 0 solid var(--primary-color);
+}
+
+.sticky-note.selected {
+    outline-width: 4px;
+    box-shadow: 0 0 0 4px var(--primary-color), var(--shadow-hover);
+    transform: scale(1.02);
+    z-index: 10;
+}
+
+.sticky-note.selection-mode {
+    cursor: pointer !important;
+}
+
+.sticky-note:active {
+    cursor: grabbing;
+    z-index: 999;
+}
+
+.sticky-note.dragging {
+    opacity: 0.9;
+    box-shadow: var(--shadow-hover);
+    transform: scale(1.02);
+}
+
+.note-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    font-size: 0.75rem;
+    color: rgba(0, 0, 0, 0.5);
+    font-weight: 500;
+}
+
+.note-date {
+    padding: 2px 0;
+    border-radius: 4px;
+    font-size: calc(0.75rem + 7px);
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    min-width: 20px;
+    /* Reduced to allow title to move left */
+    min-height: 20px;
+}
+
+.note-title-text {
+    flex: 1;
+    margin-left: 8px;
+    font-weight: 400;
+    font-size: calc(0.85rem + 2px);
+    color: rgba(0, 0, 0, 0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.2s;
+    text-align: left;
+}
+
+.note-title-text[contenteditable="true"] {
+    background: rgba(255, 255, 255, 0.5);
+    outline: none;
+    white-space: normal;
+    overflow: visible;
+}
+
+.note-content {
+    flex: 1;
+    font-size: calc(1rem - 2px);
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+}
+
+.note-content textarea {
+    width: 100%;
+    height: 100%;
+    flex: 1;
+    background: transparent;
+    border: none;
+    resize: none;
+    font-family: inherit;
+    font-size: inherit;
+    outline: none;
+    color: inherit;
+    overflow: hidden;
+    word-wrap: break-word;
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.note-content textarea::-webkit-scrollbar {
+    display: none;
+    /* Chrome/Safari */
+}
+
+.todo-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.todo-item input[type="checkbox"] {
+    margin-top: 4px;
+    cursor: pointer;
+}
+
+.todo-item span {
+    flex: 1;
+    font-size: 0.9rem;
+    cursor: text;
+    /* Indicate editability */
+}
+
+.todo-item.checked span {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+.todo-delete-btn {
+    background: transparent;
+    border: none;
+    color: rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+
+.todo-item:hover .todo-delete-btn {
+    color: rgba(0, 0, 0, 0.3);
+}
+
+.todo-delete-btn:hover {
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c !important;
+}
+
+.add-todo-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s;
+    color: rgba(0, 0, 0, 0.4);
+}
+
+.add-todo-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+    transform: scale(1.1);
+    color: var(--primary-color);
+}
+
+.note-actions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+    position: relative;
+    /* For dropdown positioning */
+}
+
+.sticky-note:hover .note-actions {
+    opacity: 1;
+}
+
+.action-btn {
+    background: transparent;
+    border: none;
+    color: rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-btn:hover {
+    color: var(--text-color);
+}
+
+.note-menu {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 8px 12px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 100;
+    margin-bottom: 8px;
+    white-space: nowrap;
+}
+
+.note-menu.show {
+    display: flex;
+}
+
+.menu-divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.1);
+    margin: 0 4px;
+}
+
+.color-swatches {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+}
+
+.swatch:hover {
+    transform: scale(1.2);
+}
+
+.delete-action-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #e74c3c;
+    transition: all 0.2s;
+    padding: 0;
+}
+
+.delete-action-icon:hover {
+    background: #fff5f5;
+}
+
+.delete-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #e74c3c;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.delete-action:hover {
+    background: #fff5f5;
+}
+
+/* FAB */
+.fab-container {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    display: flex;
+    flex-direction: column-reverse;
+    /* Options above the button */
+    align-items: flex-end;
+    gap: 16px;
+    z-index: 2000;
+}
+
+.fab {
+    width: 64px;
+    height: 64px;
+    border-radius: 32px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 16px rgba(108, 92, 231, 0.4);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fab:hover {
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 8px 24px rgba(108, 92, 231, 0.6);
+}
+
+.fab.active {
+    transform: rotate(45deg);
+    background: #ff7675;
+}
+
+.fab-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fab-menu.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+}
+
+.menu-item {
+    background: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 30px;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    transition: all 0.2s;
+}
+
+.menu-item:hover {
+    transform: translateX(-8px);
+    background: #f8f9fa;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    padding: 32px;
+    border-radius: 24px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    animation: modalIn 0.3s ease-out;
+}
+
+@keyframes modalIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-content h2 {
+    margin-bottom: 24px;
+    font-size: 1.5rem;
+}
+
+.input-group {
+    margin-bottom: 20px;
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #666;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #eee;
+    border-radius: 12px;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.date-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.date-input-group input {
+    width: 80px !important;
+    text-align: center;
+}
+
+.date-input-group input#note-date-y {
+    width: 100px !important;
+}
+
+.date-input-group input#note-date-m,
+.date-input-group input#note-date-d {
+    width: 60px !important;
+}
+
+.date-input-group span {
+    font-weight: 600;
+    color: #ccc;
+}
+
+.color-picker {
+    display: flex;
+    gap: 12px;
+}
+
+.color-option {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.color-option:hover {
+    transform: scale(1.1);
+}
+
+.color-option.active {
+    border-color: var(--primary-color);
+    transform: scale(1.1);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 32px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn.primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn.primary:hover {
+    background: #5b4bc4;
+    transform: translateY(-2px);
+}
+
+.btn.secondary {
+    background: #f0f0f0;
+    color: #666;
+}
+
+.btn.secondary:hover {
+    background: #e0e0e0;
+}
+
+/* Pastel classes for JS */
+.bg-yellow {
+    background-color: var(--pastel-yellow);
+}
+
+.bg-pink {
+    background-color: var(--pastel-pink);
+}
+
+.bg-blue {
+    background-color: var(--pastel-blue);
+}
+
+.bg-green {
+    background-color: var(--pastel-green);
+}
+
+.bg-purple {
+    background-color: var(--pastel-gray);
+}
+
+.resizer {
+    width: 20px;
+    height: 20px;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    cursor: nwse-resize;
+    z-index: 10;
+}

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sticky note</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#00b894">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo">
+            <i data-lucide="sticky-note"></i>
+            <h1>Sticky note</h1>
+        </div>
+        <div class="controls">
+            <button id="multi-select-btn" class="icon-btn" title="複数選択モード">
+                <i data-lucide="list-checks"></i>
+                <span>選択</span>
+            </button>
+            <button id="delete-selected-btn" class="icon-btn danger-btn" style="display: none;" title="選択した付箋を削除">
+                <i data-lucide="trash-2"></i>
+                <span id="delete-count">削除</span>
+            </button>
+            <button id="sort-btn" class="icon-btn" title="日付順にソート">
+                <i data-lucide="arrow-down-az"></i>
+                <span>ソート</span>
+            </button>
+        </div>
+    </header>
+
+    <main id="board" class="board">
+        <!-- Sticky notes will be injected here -->
+    </main>
+
+    <div class="fab-container">
+        <button id="fab" class="fab" title="新規作成">
+            <i data-lucide="plus"></i>
+        </button>
+        <div id="fab-menu" class="fab-menu">
+            <button class="menu-item" data-type="todo">
+                <i data-lucide="check-square"></i>
+                <span>TODO</span>
+            </button>
+            <button class="menu-item" data-type="memo">
+                <i data-lucide="file-text"></i>
+                <span>MEMO</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal for Note Creation -->
+    <div id="note-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="modal-title">新規付箋</h2>
+            <div class="input-group">
+                <label for="note-title">タイトル</label>
+                <input type="text" id="note-title" placeholder="タイトルを入力...">
+            </div>
+            <div class="input-group">
+                <label>日付[yyyymmdd]</label>
+                <div class="date-input-group">
+                    <input type="text" id="note-date-full" placeholder="20260505" maxlength="8" style="width: 100%; text-align: left; padding: 10px;">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>カラー</label>
+                <div class="color-picker">
+                    <div class="color-option active" data-color="yellow" style="background-color: #fff9c4;"></div>
+                    <div class="color-option" data-color="pink" style="background-color: #f8bbd0;"></div>
+                    <div class="color-option" data-color="blue" style="background-color: #b3e5fc;"></div>
+                    <div class="color-option" data-color="green" style="background-color: #c8e6c9;"></div>
+                    <div class="color-option" data-color="purple" style="background-color: #dfdfdf;"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-note" class="btn secondary">キャンセル</button>
+                <button id="save-note" class="btn primary">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        lucide.createIcons();
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered', reg))
+                    .catch(err => console.log('Service Worker registration failed', err));
+            });
+        }
+    </script>
+</body>
+</html>
