@@ -477,16 +477,17 @@ function updateNoteContent(id, content) {
 
 // Note Operations
 function addNote() {
-    const title = document.getElementById('note-title').value;
-    const dateFull = document.getElementById('note-date-full').value;
+    const title = document.getElementById('note-title').value.trim();
+    const dateFull = document.getElementById('note-date-full').value.trim();
     
     let formattedDate = '';
+    // Only set date if exactly 8 digits are provided
     if (dateFull && dateFull.length === 8) {
         const y = parseInt(dateFull.substring(0, 4));
         const m = parseInt(dateFull.substring(4, 6));
         const d = parseInt(dateFull.substring(6, 8));
         
-        if (y > 0 && m > 0 && d > 0) {
+        if (y > 0 && m > 0 && d > 0 && m <= 12 && d <= 31) {
             formattedDate = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         }
     }
@@ -498,7 +499,7 @@ function addNote() {
         title: title || (currentType === 'memo' ? 'MEMO' : 'TODO'),
         date: formattedDate,
         content: currentType === 'memo' ? '' : '',
-        todos: currentType === 'todo' ? [] : [],
+        todos: currentType === 'todo' ? [{ text: '', done: false }] : [],
         color: selectedColor,
         x: 100 + notes.length * 20,
         y: 100 + notes.length * 20,
