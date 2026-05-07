@@ -962,6 +962,19 @@ function setupEventListeners() {
     document.getElementById('multi-select-btn').addEventListener('click', toggleSelectionMode);
     document.getElementById('delete-selected-btn').addEventListener('click', deleteSelectedNotes);
 
+    // Date input: force half-width and numbers only
+    const dateInput = document.getElementById('note-date-full');
+    if (dateInput) {
+        dateInput.addEventListener('input', (e) => {
+            // Convert full-width numbers to half-width
+            let val = e.target.value.replace(/[０-９]/g, (s) => {
+                return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+            });
+            // Remove non-numeric characters
+            e.target.value = val.replace(/[^0-9]/g, '');
+        });
+    }
+
     // Close modal or menu on click outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.note-actions')) {
