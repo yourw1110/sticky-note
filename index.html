@@ -7,6 +7,7 @@
     <!-- Firebase SDK (Compat Version) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -28,9 +29,18 @@
                 <i data-lucide="list-checks"></i>
                 <span>選択</span>
             </button>
-            <div id="sync-info" class="sync-info" title="同期キー（クリックでコピー）">
-                <i data-lucide="refresh-cw"></i>
-                <span id="sync-key-display">ID: ---</span>
+            <div id="auth-container">
+                <button id="login-btn" class="icon-btn primary-btn">
+                    <i data-lucide="log-in"></i>
+                    <span>Googleでログイン</span>
+                </button>
+                <div id="user-profile" class="user-profile" style="display: none;">
+                    <img id="user-photo" src="" alt="User">
+                    <span id="user-name"></span>
+                    <button id="logout-btn" class="icon-btn-small" title="ログアウト">
+                        <i data-lucide="log-out"></i>
+                    </button>
+                </div>
             </div>
             <button id="delete-selected-btn" class="icon-btn danger-btn" style="display: none;" title="選択した付箋を削除">
                 <i data-lucide="trash-2"></i>

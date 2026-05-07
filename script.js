@@ -50,39 +50,20 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const auth = firebase.auth();
 
 // Sync Logic
-let syncKey = localStorage.getItem('sticky_sync_key');
-if (!syncKey) {
-    syncKey = 'user_' + Math.random().toString(36).substring(2, 10);
-    localStorage.setItem('sticky_sync_key', syncKey);
+let currentUser = null;
+let isRemoteUpdate = false;
+let firebaseListener = null;
+
+function getSyncPath() {
+    return currentUser ? `users/${currentUser.uid}` : null;
 }
 
-const syncPath = `sticky_notes/${syncKey}`;
-let isRemoteUpdate = false;
-
-// Update UI with sync key
-document.addEventListener('DOMContentLoaded', () => {
-    const display = document.getElementById('sync-key-display');
-    if (display) display.innerText = `ID: ${syncKey}`;
-    
-    const syncInfo = document.getElementById('sync-info');
-    if (syncInfo) {
-        syncInfo.onclick = () => {
-            const newKey = prompt('同期キーを入力して他端末のデータを読み込むか、現在のキーをコピーしてください。', syncKey);
-            if (newKey && newKey !== syncKey) {
-                if (confirm('別の同期キーを設定しますか？現在のデータは上書きされる可能性があります。')) {
-                    localStorage.setItem('sticky_sync_key', newKey);
-                    location.reload();
-                }
-            }
-        };
-    }
-});
-
 function saveToFirebase() {
-    if (isRemoteUpdate) return;
-    db.ref(syncPath).set({
+    if (isRemoteUpdate || !currentUser) return;
+    db.ref(getSyncPath()).set({
         tabs: tabs,
         activeTabId: activeTabId,
         lastUpdated: Date.now()
@@ -97,27 +78,43 @@ function debouncedSave() {
     saveTimeout = setTimeout(saveToFirebase, 1000);
 }
 
+// Auth Handlers
+function handleAuth() {
+    auth.onAuthStateChanged((user) => {
+        currentUser = user;
+        const loginBtn = document.getElementById('login-btn');
+        const userProfile = document.getElementById('user-profile');
+        
+        if (user) {
+            // Logged In
+            loginBtn.style.display = 'none';
+            userProfile.style.display = 'flex';
+            document.getElementById('user-photo').src = user.photoURL;
+            document.getElementById('user-name').innerText = user.displayName;
+            
+            // Start Syncing
+            startSyncing();
+        } else {
+            // Logged Out
+            loginBtn.style.display = 'flex';
+            userProfile.style.display = 'none';
+            stopSyncing();
+            
+            // On logout, keep local data but stop server sync
+            renderTabs();
+            renderNotes();
+        }
+    });
+}
 
-// DOM Elements
-const board = document.getElementById('board');
-const fab = document.getElementById('fab');
-const fabMenu = document.getElementById('fab-menu');
-const noteModal = document.getElementById('note-modal');
-const saveBtn = document.getElementById('save-note');
-const cancelBtn = document.getElementById('cancel-note');
-const sortBtn = document.getElementById('sort-btn');
-
-// Initialize
-function init() {
-    renderTabs();
-    renderNotes();
-    setupEventListeners();
+function startSyncing() {
+    if (firebaseListener) firebaseListener.off();
     
-    // Start Listening to Firebase
-    db.ref(syncPath).on('value', (snapshot) => {
+    firebaseListener = db.ref(getSyncPath());
+    firebaseListener.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.tabs) {
-            // Only update if remote is newer or we don't have tabs
+            // Sync from Server
             if (!tabs.length || data.lastUpdated > (parseInt(localStorage.getItem('sticky_last_sync')) || 0)) {
                 isRemoteUpdate = true;
                 tabs = data.tabs;
@@ -128,10 +125,52 @@ function init() {
                 isRemoteUpdate = false;
             }
         } else if (tabs.length > 0) {
-            // First time sync: push local data to Firebase
+            // Initial upload to new account
             saveToFirebase();
         }
     });
+}
+
+function stopSyncing() {
+    if (firebaseListener) {
+        firebaseListener.off();
+        firebaseListener = null;
+    }
+}
+
+// DOM Elements
+const board = document.getElementById('board');
+const fab = document.getElementById('fab');
+const fabMenu = document.getElementById('fab-menu');
+const noteModal = document.getElementById('note-modal');
+const saveBtn = document.getElementById('save-note');
+const cancelBtn = document.getElementById('cancel-note');
+const sortBtn = document.getElementById('sort-btn');
+
+function login() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(err => {
+        console.error("Login failed:", err);
+        alert("ログインに失敗しました。");
+    });
+}
+
+function logout() {
+    if (confirm("ログアウトしますか？")) {
+        auth.signOut();
+    }
+}
+
+// Initialize
+function init() {
+    renderTabs();
+    renderNotes();
+    setupEventListeners();
+    handleAuth();
+    
+    // Auth Buttons
+    document.getElementById('login-btn').onclick = login;
+    document.getElementById('logout-btn').onclick = logout;
 }
 
 // Render Notes
