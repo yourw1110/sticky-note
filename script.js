@@ -87,8 +87,12 @@ function saveToFirebase() {
 let saveTimeout;
 function debouncedSave() {
     saveToLocalStorage();
+    if (isRemoteUpdate) return;
+    
     clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(saveToFirebase, 1000);
+    saveTimeout = setTimeout(() => {
+        if (currentUser) saveToFirebase();
+    }, 1500);
 }
 
 // Auth Handlers
@@ -132,19 +136,29 @@ function startSyncing() {
             const remoteTime = data.lastUpdated || 0;
             const localTime = parseInt(localStorage.getItem('sticky_last_sync')) || 0;
 
-            // Sync from Server if remote is newer or local is empty/initial
-            if (remoteTime > localTime || tabs.length <= 1) {
+            // ONLY update if remote is genuinely newer than what we have
+            if (remoteTime > localTime) {
+                console.log("Newer data found on server. Syncing...");
+                
+                // CRITICAL: Stop any pending local saves to prevent echo loops
+                clearTimeout(saveTimeout);
                 isRemoteUpdate = true;
+                
                 tabs = data.tabs;
                 activeTabId = data.activeTabId;
                 localStorage.setItem('sticky_last_sync', remoteTime);
+                saveToLocalStorage(); // Keep local storage in sync with remote
+                
                 renderTabs();
                 renderNotes();
-                isRemoteUpdate = false;
-                console.log("Synced from server successfully.");
+                
+                // Keep the lock for a bit to let DOM settles
+                setTimeout(() => {
+                    isRemoteUpdate = false;
+                }, 500);
             }
-        } else if (tabs.length > 0) {
-            // Initial upload to new account
+        } else if (tabs.length > 0 && !data) {
+            // New account or empty server: initial push
             saveToFirebase();
         }
     });
