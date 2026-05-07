@@ -87,17 +87,17 @@
         <div class="modal-content">
             <h2 id="modal-title">新規付箋</h2>
             <div class="input-group">
-                <label for="note-title">タイトル</label>
-                <input type="text" id="note-title" placeholder="タイトルを入力...">
+                <label for="note-title">TITLE</label>
+                <input type="text" id="note-title" placeholder="TITLE...">
             </div>
             <div class="input-group">
-                <label>日付[yyyymmdd]</label>
+                <label>DATE [yyyymmdd]</label>
                 <div class="date-input-group">
-                    <input type="text" id="note-date-full" placeholder="20260505" maxlength="8" style="width: 100%; text-align: left; padding: 10px;">
+                    <input type="text" id="note-date-full" class="full-date-input" placeholder="20260505" maxlength="8">
                 </div>
             </div>
             <div class="input-group">
-                <label>カラー</label>
+                <label>COLLAR</label>
                 <div class="color-picker">
                     <div class="color-option active" data-color="yellow" style="background-color: #fff9c4;"></div>
                     <div class="color-option" data-color="pink" style="background-color: #f8bbd0;"></div>
@@ -107,8 +107,8 @@
                 </div>
             </div>
             <div class="modal-actions">
-                <button id="cancel-note" class="btn secondary">キャンセル</button>
-                <button id="save-note" class="btn primary">保存</button>
+                <button id="cancel-note" class="btn secondary">CANCEL</button>
+                <button id="save-note" class="btn primary">SAVE</button>
             </div>
         </div>
     </div>

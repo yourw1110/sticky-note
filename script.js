@@ -855,9 +855,18 @@ function switchTab(id) {
 }
 
 function addTab() {
+    let count = 0;
+    tabs.forEach(t => {
+        if (t.name.startsWith('NOTE')) {
+            const suffix = t.name.substring(4);
+            if (/^\+*$/.test(suffix)) {
+                count = Math.max(count, suffix.length + 1);
+            }
+        }
+    });
     const newTab = {
         id: Date.now().toString(),
-        name: `ボード ${tabs.length + 1}`,
+        name: count === 0 ? 'NOTE' : 'NOTE' + '+'.repeat(count),
         notes: []
     };
     tabs.push(newTab);
@@ -929,7 +938,7 @@ function setupEventListeners() {
     document.querySelectorAll('.menu-item').forEach(item => {
         item.addEventListener('click', () => {
             currentType = item.dataset.type;
-            document.getElementById('modal-title').innerText = currentType === 'todo' ? '新規TODO付箋' : '新規MEMO付箋';
+            document.getElementById('modal-title').innerText = currentType === 'todo' ? '+TODO' : '+MEMO';
             noteModal.classList.add('show');
             fab.classList.remove('active');
             fabMenu.classList.remove('show');

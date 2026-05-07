@@ -759,18 +759,10 @@ i:empty ~ .fallback-icon {
     gap: 8px;
 }
 
-.date-input-group input {
-    width: 120px !important;
-    text-align: center;
-}
-
-.date-input-group input#note-date-y {
-    width: 100px !important;
-}
-
-.date-input-group input#note-date-m,
-.date-input-group input#note-date-d {
-    width: 60px !important;
+.full-date-input {
+    width: calc(100% - 10px) !important;
+    text-align: center !important;
+    padding: 10px;
 }
 
 .date-input-group span {
