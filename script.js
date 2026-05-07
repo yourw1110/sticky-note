@@ -89,7 +89,9 @@ function handleAuth() {
             // Logged In
             loginBtn.style.display = 'none';
             userProfile.style.display = 'flex';
-            document.getElementById('user-photo').src = user.photoURL;
+            const userPhoto = document.getElementById('user-photo');
+            userPhoto.src = user.photoURL;
+            userPhoto.onclick = logout; // Click photo to logout
             document.getElementById('user-name').innerText = user.displayName;
             
             // Start Syncing

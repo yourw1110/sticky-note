@@ -115,11 +115,10 @@ body {
 .user-profile {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 4px 12px;
-    background: #f8f9fa;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    border-radius: 24px;
+    gap: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
 }
 
 .user-profile img {
@@ -127,7 +126,16 @@ body {
     height: 32px;
     border-radius: 50%;
     object-fit: cover;
+    cursor: pointer;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    transition: all 0.2s;
 }
+
+.user-profile img:hover {
+    transform: scale(1.1);
+    border-color: var(--primary-color);
+}
+
 
 .user-profile span {
     font-size: 0.9rem;

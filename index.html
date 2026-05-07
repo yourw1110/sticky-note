@@ -25,19 +25,6 @@
                 <i data-lucide="sticky-note"></i>
                 <h1>Sticky note</h1>
             </div>
-            <div id="auth-container">
-                <button id="login-btn" class="icon-btn primary-btn">
-                    <i data-lucide="log-in"></i>
-                    <span>Googleでログイン</span>
-                </button>
-                <div id="user-profile" class="user-profile" style="display: none;">
-                    <img id="user-photo" src="" alt="User">
-                    <span id="user-name"></span>
-                    <button id="logout-btn" class="icon-btn-small" title="ログアウト">
-                        <i data-lucide="log-out"></i>
-                    </button>
-                </div>
-            </div>
         </div>
         <div class="controls">
             <button id="multi-select-btn" class="icon-btn" title="複数選択モード">
@@ -50,6 +37,18 @@
                 <i data-lucide="trash-2"></i>
                 <span id="delete-count">削除</span>
             </button>
+            <div id="auth-container">
+                <button id="login-btn" class="icon-btn" title="Googleでログイン">
+                    <i data-lucide="user-circle"></i>
+                </button>
+                <div id="user-profile" class="user-profile" style="display: none;">
+                    <img id="user-photo" src="" alt="User" title="ログアウト">
+                    <span id="user-name" style="display: none;"></span>
+                    <button id="logout-btn" class="icon-btn-small" style="display: none;">
+                        <i data-lucide="log-out"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
