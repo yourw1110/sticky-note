@@ -34,6 +34,9 @@ let currentType = 'memo';
 let selectedColor = 'yellow';
 let isSelectionMode = false;
 let selectedNoteIds = new Set();
+let sortOrder = 'desc'; // Default to desc since first click will toggle to asc or vice-versa?
+// Actually let's start with 'desc' so first click makes it 'asc'.
+
 
 // DOM Elements
 const board = document.getElementById('board');
@@ -629,8 +632,22 @@ function sortNotesByDate() {
     const tab = getActiveTab();
     if (!tab) return;
     
+    // Toggle order
+    sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    
+    // Update icon
+    const sortBtnIcon = document.querySelector('#sort-btn i');
+    if (sortBtnIcon) {
+        sortBtnIcon.setAttribute('data-lucide', sortOrder === 'asc' ? 'arrow-up-az' : 'arrow-down-az');
+        lucide.createIcons({ parentElement: document.getElementById('sort-btn') });
+    }
+    
     // Separate notes with and without dates
-    const withDate = tab.notes.filter(n => n.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const withDate = tab.notes.filter(n => n.date).sort((a, b) => {
+        const dA = new Date(a.date);
+        const dB = new Date(b.date);
+        return sortOrder === 'asc' ? dA - dB : dB - dA;
+    });
     const withoutDate = tab.notes.filter(n => !n.date);
     
     const sorted = [...withDate, ...withoutDate];
