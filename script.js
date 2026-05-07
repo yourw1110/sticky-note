@@ -13,12 +13,12 @@ if (tabs.length === 0) {
     tabs = [defaultTab];
     activeTabId = defaultTab.id;
     localStorage.removeItem('sticky_notes');
-    saveToLocalStorage();
+    debouncedSave();
 }
 
 if (!activeTabId && tabs.length > 0) {
     activeTabId = tabs[0].id;
-    saveToLocalStorage();
+    debouncedSave();
 }
 
 function getActiveTab() {
@@ -34,8 +34,68 @@ let currentType = 'memo';
 let selectedColor = 'yellow';
 let isSelectionMode = false;
 let selectedNoteIds = new Set();
-let sortOrder = 'desc'; // Default to desc since first click will toggle to asc or vice-versa?
-// Actually let's start with 'desc' so first click makes it 'asc'.
+let sortOrder = 'desc';
+
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyBUEjOw7p8Uf7KlangC2-VlDSQaN5pgUq4",
+    authDomain: "sticky-note-f123d.firebaseapp.com",
+    databaseURL: "https://sticky-note-f123d-default-rtdb.firebaseio.com",
+    projectId: "sticky-note-f123d",
+    storageBucket: "sticky-note-f123d.firebasestorage.app",
+    messagingSenderId: "21493131669",
+    appId: "1:21493131669:web:653215b69ad82a8bc0ee9c"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Sync Logic
+let syncKey = localStorage.getItem('sticky_sync_key');
+if (!syncKey) {
+    syncKey = 'user_' + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem('sticky_sync_key', syncKey);
+}
+
+const syncPath = `sticky_notes/${syncKey}`;
+let isRemoteUpdate = false;
+
+// Update UI with sync key
+document.addEventListener('DOMContentLoaded', () => {
+    const display = document.getElementById('sync-key-display');
+    if (display) display.innerText = `ID: ${syncKey}`;
+    
+    const syncInfo = document.getElementById('sync-info');
+    if (syncInfo) {
+        syncInfo.onclick = () => {
+            const newKey = prompt('同期キーを入力して他端末のデータを読み込むか、現在のキーをコピーしてください。', syncKey);
+            if (newKey && newKey !== syncKey) {
+                if (confirm('別の同期キーを設定しますか？現在のデータは上書きされる可能性があります。')) {
+                    localStorage.setItem('sticky_sync_key', newKey);
+                    location.reload();
+                }
+            }
+        };
+    }
+});
+
+function saveToFirebase() {
+    if (isRemoteUpdate) return;
+    db.ref(syncPath).set({
+        tabs: tabs,
+        activeTabId: activeTabId,
+        lastUpdated: Date.now()
+    }).catch(err => console.error("Firebase save error:", err));
+}
+
+// Debounce save
+let saveTimeout;
+function debouncedSave() {
+    saveToLocalStorage();
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveToFirebase, 1000);
+}
 
 
 // DOM Elements
@@ -52,6 +112,26 @@ function init() {
     renderTabs();
     renderNotes();
     setupEventListeners();
+    
+    // Start Listening to Firebase
+    db.ref(syncPath).on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.tabs) {
+            // Only update if remote is newer or we don't have tabs
+            if (!tabs.length || data.lastUpdated > (parseInt(localStorage.getItem('sticky_last_sync')) || 0)) {
+                isRemoteUpdate = true;
+                tabs = data.tabs;
+                activeTabId = data.activeTabId;
+                localStorage.setItem('sticky_last_sync', data.lastUpdated);
+                renderTabs();
+                renderNotes();
+                isRemoteUpdate = false;
+            }
+        } else if (tabs.length > 0) {
+            // First time sync: push local data to Firebase
+            saveToFirebase();
+        }
+    });
 }
 
 // Render Notes
@@ -253,7 +333,7 @@ function setupDraggable(el, note) {
         isDragging = false;
         el.classList.remove('dragging');
         el.style.zIndex = '';
-        saveToLocalStorage();
+        debouncedSave();
     });
 
     // Set initial size if exists
@@ -297,7 +377,7 @@ function setupResizer(el, resizer, note) {
     function stopDrag() {
         document.removeEventListener('mousemove', doDrag);
         document.removeEventListener('mouseup', stopDrag);
-        saveToLocalStorage();
+        debouncedSave();
         el.style.zIndex = '';
     }
 }
@@ -308,7 +388,7 @@ function updateNotePos(id, x, y) {
     if (note) {
         note.x = x;
         note.y = y;
-        saveToLocalStorage();
+        debouncedSave();
     }
 }
 
@@ -318,7 +398,7 @@ function updateNoteSize(id, w, h) {
     if (note) {
         note.width = w;
         note.height = h;
-        saveToLocalStorage();
+        debouncedSave();
     }
 }
 
@@ -327,7 +407,7 @@ function updateNoteColor(id, color) {
     const note = notes.find(n => n.id === id);
     if (note) {
         note.color = color;
-        saveToLocalStorage();
+        debouncedSave();
         renderNotes();
     }
 }
@@ -337,7 +417,7 @@ function updateNoteTitle(id, title) {
     const note = notes.find(n => n.id === id);
     if (note) {
         note.title = title;
-        saveToLocalStorage();
+        debouncedSave();
     }
 }
 
@@ -346,7 +426,7 @@ function updateNoteContent(id, content) {
     const note = notes.find(n => n.id === id);
     if (note) {
         note.content = content;
-        saveToLocalStorage();
+        debouncedSave();
     }
 }
 
@@ -382,7 +462,7 @@ function addNote() {
     };
 
     notes.push(newNote);
-    saveToLocalStorage();
+    debouncedSave();
     renderNotes();
     closeModal();
 }
@@ -393,7 +473,7 @@ function deleteNote(id) {
         tab.notes = tab.notes.filter(n => n.id !== id);
         selectedNoteIds.delete(id);
         updateBatchUI();
-        saveToLocalStorage();
+        debouncedSave();
         renderNotes();
     }
 }
@@ -430,7 +510,7 @@ function deleteSelectedNotes() {
         activeTab.notes = activeTab.notes.filter(n => !selectedNoteIds.has(n.id));
         selectedNoteIds.clear();
         updateBatchUI();
-        saveToLocalStorage();
+        debouncedSave();
         renderNotes();
     }
 }
@@ -458,7 +538,7 @@ function changeNoteColor(id, color) {
     const note = notes.find(n => n.id === id);
     if (note) {
         note.color = color;
-        saveToLocalStorage();
+        debouncedSave();
         renderNotes();
     }
 }
@@ -468,7 +548,7 @@ function updateNoteContent(id, content) {
     const note = notes.find(n => n.id === id);
     if (note) {
         note.content = content;
-        saveToLocalStorage();
+        debouncedSave();
     }
 }
 
@@ -477,7 +557,7 @@ function toggleTodo(noteId, todoIdx) {
     const note = notes.find(n => n.id === noteId);
     if (note && note.todos[todoIdx]) {
         note.todos[todoIdx].done = !note.todos[todoIdx].done;
-        saveToLocalStorage();
+        debouncedSave();
         renderNotes();
     }
 }
@@ -487,7 +567,7 @@ function updateTodoText(noteId, todoIdx, text) {
     const note = notes.find(n => n.id === noteId);
     if (note && note.todos[todoIdx]) {
         note.todos[todoIdx].text = text;
-        saveToLocalStorage();
+        debouncedSave();
     }
 }
 
@@ -496,7 +576,7 @@ function deleteTodoItem(noteId, todoIdx) {
     const note = notes.find(n => n.id === noteId);
     if (note && note.todos) {
         note.todos.splice(todoIdx, 1);
-        saveToLocalStorage();
+        debouncedSave();
         renderNotes();
     }
 }
@@ -506,7 +586,7 @@ function addTodoItem(noteId) {
     const note = notes.find(n => n.id === noteId);
     if (note) {
         note.todos.push({ text: '', done: false });
-        saveToLocalStorage();
+        debouncedSave();
         renderNotes();
         
         // Focus the new item
@@ -537,7 +617,7 @@ function makeTitleEditable(id, el) {
         const note = notes.find(n => n.id === id);
         if (note) {
             note.title = el.innerText;
-            saveToLocalStorage();
+            debouncedSave();
         }
     };
     el.onkeydown = (e) => {
@@ -615,7 +695,7 @@ function makeDateEditable(id, el) {
             note.date = '';
         }
         
-        saveToLocalStorage();
+        debouncedSave();
         renderNotes();
     };
 
@@ -680,13 +760,14 @@ function sortNotesByDate() {
     });
     
     tab.notes = sorted;
-    saveToLocalStorage();
+    debouncedSave();
     renderNotes();
 }
 
 function saveToLocalStorage() {
     localStorage.setItem('sticky_tabs', JSON.stringify(tabs));
     localStorage.setItem('sticky_active_tab', activeTabId);
+    localStorage.setItem('sticky_last_sync', Date.now());
 }
 
 // Tab Management
@@ -723,7 +804,7 @@ function switchTab(id) {
     activeTabId = id;
     selectedNoteIds.clear();
     updateBatchUI();
-    saveToLocalStorage();
+    debouncedSave();
     renderTabs();
     renderNotes();
 }
@@ -736,7 +817,7 @@ function addTab() {
     };
     tabs.push(newTab);
     activeTabId = newTab.id;
-    saveToLocalStorage();
+    debouncedSave();
     renderTabs();
     renderNotes();
     
@@ -753,7 +834,7 @@ function deleteTab(id) {
         if (activeTabId == id) {
             activeTabId = tabs[0].id;
         }
-        saveToLocalStorage();
+        debouncedSave();
         renderTabs();
         renderNotes();
     }
@@ -779,7 +860,7 @@ function makeTabNameEditable(el, id) {
     input.onblur = () => {
         const newName = input.value.trim() || currentName;
         tab.name = newName;
-        saveToLocalStorage();
+        debouncedSave();
         renderTabs();
     };
     

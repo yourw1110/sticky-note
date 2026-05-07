@@ -100,6 +100,29 @@ body {
     border-color: rgba(231, 76, 60, 0.2);
 }
 
+.sync-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #f8f9fa;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: #666;
+    cursor: pointer;
+}
+
+.sync-info i {
+    width: 14px;
+    height: 14px;
+}
+
+.sync-info:hover {
+    background: #e9ecef;
+}
+
+
 .icon-btn.danger-btn:hover {
     background: #e74c3c;
     color: white;

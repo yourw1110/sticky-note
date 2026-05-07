@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sticky note</title>
+    <!-- Firebase SDK (Compat Version) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#00b894">
@@ -24,6 +28,10 @@
                 <i data-lucide="list-checks"></i>
                 <span>選択</span>
             </button>
+            <div id="sync-info" class="sync-info" title="同期キー（クリックでコピー）">
+                <i data-lucide="refresh-cw"></i>
+                <span id="sync-key-display">ID: ---</span>
+            </div>
             <button id="delete-selected-btn" class="icon-btn danger-btn" style="display: none;" title="選択した付箋を削除">
                 <i data-lucide="trash-2"></i>
                 <span id="delete-count">削除</span>
