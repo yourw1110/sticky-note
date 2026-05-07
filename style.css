@@ -150,7 +150,7 @@ i:empty ~ .fallback-icon {
     display: flex;
     align-items: center;
     gap: 12px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
     z-index: 999;
 }
 
@@ -169,8 +169,8 @@ i:empty ~ .fallback-icon {
     padding: 8px 16px;
     background: white;
     border: 1px solid rgba(0, 0, 0, 0.1);
-    border-bottom: none;
-    border-radius: 8px 8px 0 0;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 500;
@@ -181,7 +181,7 @@ i:empty ~ .fallback-icon {
     transition: all 0.2s;
     white-space: nowrap;
     position: relative;
-    top: 1px;
+    top: -1px;
 }
 
 .tab-item:hover {
@@ -190,11 +190,11 @@ i:empty ~ .fallback-icon {
 }
 
 .tab-item.active {
-    background: white;
+    background: var(--bg-color);
     color: var(--primary-color);
     border-color: rgba(0, 0, 0, 0.1);
-    border-top: 3px solid var(--primary-color);
-    padding-top: 6px;
+    border-bottom: 3px solid var(--primary-color);
+    padding-bottom: 6px;
 }
 
 .tab-item .tab-name {
