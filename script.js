@@ -637,7 +637,7 @@ function sortNotesByDate() {
     
     const margin = 30;
     const startX = 40;
-    const startY = 100;
+    const startY = 40;
     const boardWidth = window.innerWidth - 80;
 
     let currentX = startX;
