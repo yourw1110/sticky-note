@@ -151,7 +151,11 @@ function login() {
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider).catch(err => {
         console.error("Login failed:", err);
-        alert("ログインに失敗しました。");
+        if (err.code === 'auth/unauthorized-domain') {
+            alert("ログインに失敗しました：このドメイン（URL）がFirebaseで許可されていません。Firebaseコンソールの Authentication > Settings > Authorized domains に現在のURLのドメインを追加してください。");
+        } else {
+            alert(`ログインに失敗しました: ${err.message}`);
+        }
     });
 }
 

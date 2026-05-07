@@ -20,15 +20,11 @@
 </head>
 <body>
     <header class="app-header">
-        <div class="logo">
-            <i data-lucide="sticky-note"></i>
-            <h1>Sticky note</h1>
-        </div>
-        <div class="controls">
-            <button id="multi-select-btn" class="icon-btn" title="複数選択モード">
-                <i data-lucide="list-checks"></i>
-                <span>選択</span>
-            </button>
+        <div class="header-left">
+            <div class="logo">
+                <i data-lucide="sticky-note"></i>
+                <h1>Sticky note</h1>
+            </div>
             <div id="auth-container">
                 <button id="login-btn" class="icon-btn primary-btn">
                     <i data-lucide="log-in"></i>
@@ -42,13 +38,17 @@
                     </button>
                 </div>
             </div>
-            <button id="delete-selected-btn" class="icon-btn danger-btn" style="display: none;" title="選択した付箋を削除">
-                <i data-lucide="trash-2"></i>
-                <span id="delete-count">削除</span>
+        </div>
+        <div class="controls">
+            <button id="multi-select-btn" class="icon-btn" title="複数選択モード">
+                <i data-lucide="list-checks"></i>
             </button>
             <button id="sort-btn" class="icon-btn" title="日付順にソート">
                 <i data-lucide="arrow-down-az"></i>
-                <span>ソート</span>
+            </button>
+            <button id="delete-selected-btn" class="icon-btn danger-btn" style="display: none;" title="選択した付箋を削除">
+                <i data-lucide="trash-2"></i>
+                <span id="delete-count">削除</span>
             </button>
         </div>
     </header>

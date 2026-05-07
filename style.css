@@ -48,6 +48,12 @@ body {
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
 .logo {
     display: flex;
     align-items: center;
@@ -72,10 +78,12 @@ body {
 .icon-btn {
     background: white;
     border: 1px solid rgba(0, 0, 0, 0.1);
-    padding: 8px 16px;
+    padding: 8px 12px;
+    height: 40px;
     border-radius: 20px;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     cursor: pointer;
     transition: all 0.2s;
