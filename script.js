@@ -27,7 +27,9 @@ function getActiveTab() {
 
 function getActiveNotes() {
     const tab = getActiveTab();
-    return tab ? tab.notes : [];
+    if (!tab) return [];
+    if (!tab.notes) tab.notes = []; // Ensure notes array exists (Firebase removes empty arrays)
+    return tab.notes;
 }
 
 let currentType = 'memo';
