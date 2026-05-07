@@ -1,6 +1,35 @@
 // State Management
-let notes = JSON.parse(localStorage.getItem('sticky_notes')) || [];
-let nextId = notes.length > 0 ? Math.max(...notes.map(n => n.id)) + 1 : 1;
+let tabs = JSON.parse(localStorage.getItem('sticky_tabs')) || [];
+let activeTabId = localStorage.getItem('sticky_active_tab');
+
+// Migration & Initialization
+if (tabs.length === 0) {
+    const oldNotes = JSON.parse(localStorage.getItem('sticky_notes')) || [];
+    const defaultTab = {
+        id: Date.now().toString(),
+        name: 'General',
+        notes: oldNotes
+    };
+    tabs = [defaultTab];
+    activeTabId = defaultTab.id;
+    localStorage.removeItem('sticky_notes');
+    saveToLocalStorage();
+}
+
+if (!activeTabId && tabs.length > 0) {
+    activeTabId = tabs[0].id;
+    saveToLocalStorage();
+}
+
+function getActiveTab() {
+    return tabs.find(t => t.id == activeTabId);
+}
+
+function getActiveNotes() {
+    const tab = getActiveTab();
+    return tab ? tab.notes : [];
+}
+
 let currentType = 'memo';
 let selectedColor = 'yellow';
 let isSelectionMode = false;
@@ -17,6 +46,7 @@ const sortBtn = document.getElementById('sort-btn');
 
 // Initialize
 function init() {
+    renderTabs();
     renderNotes();
     setupEventListeners();
 }
@@ -24,6 +54,7 @@ function init() {
 // Render Notes
 function renderNotes() {
     board.innerHTML = '';
+    const notes = getActiveNotes();
     notes.forEach(note => {
         const noteEl = createNoteElement(note);
         board.appendChild(noteEl);
@@ -268,6 +299,54 @@ function setupResizer(el, resizer, note) {
     }
 }
 
+function updateNotePos(id, x, y) {
+    const notes = getActiveNotes();
+    const note = notes.find(n => n.id === id);
+    if (note) {
+        note.x = x;
+        note.y = y;
+        saveToLocalStorage();
+    }
+}
+
+function updateNoteSize(id, w, h) {
+    const notes = getActiveNotes();
+    const note = notes.find(n => n.id === id);
+    if (note) {
+        note.width = w;
+        note.height = h;
+        saveToLocalStorage();
+    }
+}
+
+function updateNoteColor(id, color) {
+    const notes = getActiveNotes();
+    const note = notes.find(n => n.id === id);
+    if (note) {
+        note.color = color;
+        saveToLocalStorage();
+        renderNotes();
+    }
+}
+
+function updateNoteTitle(id, title) {
+    const notes = getActiveNotes();
+    const note = notes.find(n => n.id === id);
+    if (note) {
+        note.title = title;
+        saveToLocalStorage();
+    }
+}
+
+function updateNoteContent(id, content) {
+    const notes = getActiveNotes();
+    const note = notes.find(n => n.id === id);
+    if (note) {
+        note.content = content;
+        saveToLocalStorage();
+    }
+}
+
 // Note Operations
 function addNote() {
     const title = document.getElementById('note-title').value;
@@ -284,6 +363,7 @@ function addNote() {
         }
     }
 
+    const notes = getActiveNotes();
     const newNote = {
         id: Date.now(),
         type: currentType,
@@ -305,8 +385,9 @@ function addNote() {
 }
 
 function deleteNote(id) {
-    if (confirm('この付箋を削除しますか？')) {
-        notes = notes.filter(n => n.id !== id);
+    const tab = getActiveTab();
+    if (tab && confirm('この付箋を削除しますか？')) {
+        tab.notes = tab.notes.filter(n => n.id !== id);
         selectedNoteIds.delete(id);
         updateBatchUI();
         saveToLocalStorage();
@@ -341,8 +422,9 @@ function updateBatchUI() {
 function deleteSelectedNotes() {
     if (selectedNoteIds.size === 0) return;
     
-    if (confirm(`選択した ${selectedNoteIds.size} 件の付箋を削除しますか？`)) {
-        notes = notes.filter(n => !selectedNoteIds.has(n.id));
+    const activeTab = getActiveTab();
+    if (activeTab && confirm(`選択した ${selectedNoteIds.size} 件の付箋を削除しますか？`)) {
+        activeTab.notes = activeTab.notes.filter(n => !selectedNoteIds.has(n.id));
         selectedNoteIds.clear();
         updateBatchUI();
         saveToLocalStorage();
@@ -369,6 +451,7 @@ function toggleSelectionMode() {
 }
 
 function changeNoteColor(id, color) {
+    const notes = getActiveNotes();
     const note = notes.find(n => n.id === id);
     if (note) {
         note.color = color;
@@ -378,6 +461,7 @@ function changeNoteColor(id, color) {
 }
 
 function updateNoteContent(id, content) {
+    const notes = getActiveNotes();
     const note = notes.find(n => n.id === id);
     if (note) {
         note.content = content;
@@ -386,6 +470,7 @@ function updateNoteContent(id, content) {
 }
 
 function toggleTodo(noteId, todoIdx) {
+    const notes = getActiveNotes();
     const note = notes.find(n => n.id === noteId);
     if (note && note.todos[todoIdx]) {
         note.todos[todoIdx].done = !note.todos[todoIdx].done;
@@ -395,6 +480,7 @@ function toggleTodo(noteId, todoIdx) {
 }
 
 function updateTodoText(noteId, todoIdx, text) {
+    const notes = getActiveNotes();
     const note = notes.find(n => n.id === noteId);
     if (note && note.todos[todoIdx]) {
         note.todos[todoIdx].text = text;
@@ -403,6 +489,7 @@ function updateTodoText(noteId, todoIdx, text) {
 }
 
 function deleteTodoItem(noteId, todoIdx) {
+    const notes = getActiveNotes();
     const note = notes.find(n => n.id === noteId);
     if (note && note.todos) {
         note.todos.splice(todoIdx, 1);
@@ -412,6 +499,7 @@ function deleteTodoItem(noteId, todoIdx) {
 }
 
 function addTodoItem(noteId) {
+    const notes = getActiveNotes();
     const note = notes.find(n => n.id === noteId);
     if (note) {
         note.todos.push({ text: '', done: false });
@@ -442,6 +530,7 @@ function makeTitleEditable(id, el) {
     el.focus();
     el.onblur = () => {
         el.contentEditable = false;
+        const notes = getActiveNotes();
         const note = notes.find(n => n.id === id);
         if (note) {
             note.title = el.innerText;
@@ -457,6 +546,7 @@ function makeTitleEditable(id, el) {
 }
 
 function makeDateEditable(id, el) {
+    const notes = getActiveNotes();
     const note = notes.find(n => n.id === id);
     if (!note) return;
 
@@ -536,9 +626,12 @@ function makeDateEditable(id, el) {
 
 // Sorting Logic
 function sortNotesByDate() {
+    const tab = getActiveTab();
+    if (!tab) return;
+    
     // Separate notes with and without dates
-    const withDate = notes.filter(n => n.date).sort((a, b) => new Date(a.date) - new Date(b.date));
-    const withoutDate = notes.filter(n => !n.date);
+    const withDate = tab.notes.filter(n => n.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const withoutDate = tab.notes.filter(n => !n.date);
     
     const sorted = [...withDate, ...withoutDate];
     
@@ -569,14 +662,117 @@ function sortNotesByDate() {
         maxRowHeight = Math.max(maxRowHeight, noteHeight);
     });
     
-    notes = sorted;
+    tab.notes = sorted;
     saveToLocalStorage();
     renderNotes();
 }
 
-// Utils
 function saveToLocalStorage() {
-    localStorage.setItem('sticky_notes', JSON.stringify(notes));
+    localStorage.setItem('sticky_tabs', JSON.stringify(tabs));
+    localStorage.setItem('sticky_active_tab', activeTabId);
+}
+
+// Tab Management
+function renderTabs() {
+    const tabsList = document.getElementById('tabs-list');
+    tabsList.innerHTML = '';
+    
+    tabs.forEach(tab => {
+        const tabEl = document.createElement('div');
+        tabEl.className = `tab-item ${tab.id == activeTabId ? 'active' : ''}`;
+        tabEl.onclick = () => switchTab(tab.id);
+        tabEl.ondblclick = (e) => {
+            e.stopPropagation();
+            makeTabNameEditable(tabEl, tab.id);
+        };
+        
+        tabEl.innerHTML = `
+            <span class="tab-name">${tab.name}</span>
+            ${tabs.length > 1 ? `
+                <span class="tab-delete-btn" onclick="event.stopPropagation(); deleteTab('${tab.id}')">
+                    <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                </span>
+            ` : ''}
+        `;
+        
+        tabsList.appendChild(tabEl);
+    });
+    
+    lucide.createIcons();
+}
+
+function switchTab(id) {
+    if (activeTabId == id) return;
+    activeTabId = id;
+    selectedNoteIds.clear();
+    updateBatchUI();
+    saveToLocalStorage();
+    renderTabs();
+    renderNotes();
+}
+
+function addTab() {
+    const newTab = {
+        id: Date.now().toString(),
+        name: `ボード ${tabs.length + 1}`,
+        notes: []
+    };
+    tabs.push(newTab);
+    activeTabId = newTab.id;
+    saveToLocalStorage();
+    renderTabs();
+    renderNotes();
+    
+    // Auto edit new tab name
+    const tabsList = document.getElementById('tabs-list');
+    const newTabEl = tabsList.lastElementChild;
+    if (newTabEl) makeTabNameEditable(newTabEl, newTab.id);
+}
+
+function deleteTab(id) {
+    if (tabs.length <= 1) return;
+    if (confirm('このボードを削除しますか？中の付箋もすべて削除されます。')) {
+        tabs = tabs.filter(t => t.id != id);
+        if (activeTabId == id) {
+            activeTabId = tabs[0].id;
+        }
+        saveToLocalStorage();
+        renderTabs();
+        renderNotes();
+    }
+}
+
+function makeTabNameEditable(el, id) {
+    const tab = tabs.find(t => t.id == id);
+    if (!tab) return;
+    
+    const nameSpan = el.querySelector('.tab-name');
+    const currentName = tab.name;
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'tab-edit-input';
+    input.value = currentName;
+    
+    nameSpan.innerHTML = '';
+    nameSpan.appendChild(input);
+    input.focus();
+    input.select();
+    
+    input.onblur = () => {
+        const newName = input.value.trim() || currentName;
+        tab.name = newName;
+        saveToLocalStorage();
+        renderTabs();
+    };
+    
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') input.blur();
+        if (e.key === 'Escape') {
+            input.value = currentName;
+            input.blur();
+        }
+    };
 }
 
 function setupEventListeners() {
@@ -608,6 +804,8 @@ function setupEventListeners() {
     saveBtn.addEventListener('click', addNote);
     cancelBtn.addEventListener('click', closeModal);
     sortBtn.addEventListener('click', sortNotesByDate);
+    
+    document.getElementById('add-tab-btn').addEventListener('click', addTab);
     
     document.getElementById('multi-select-btn').addEventListener('click', toggleSelectionMode);
     document.getElementById('delete-selected-btn').addEventListener('click', deleteSelectedNotes);
