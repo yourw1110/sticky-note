@@ -63,11 +63,22 @@ function getSyncPath() {
 
 function saveToFirebase() {
     if (isRemoteUpdate || !currentUser) return;
+    
+    // Show sync start feedback
+    const syncIcon = document.querySelector('#auth-container i');
+    if (syncIcon) syncIcon.classList.add('spinning');
+
     db.ref(getSyncPath()).set({
         tabs: tabs,
         activeTabId: activeTabId,
         lastUpdated: Date.now()
-    }).catch(err => console.error("Firebase save error:", err));
+    }).then(() => {
+        // Success feedback
+        if (syncIcon) setTimeout(() => syncIcon.classList.remove('spinning'), 500);
+    }).catch(err => {
+        console.error("Firebase save error (Check Rules!):", err);
+        if (syncIcon) syncIcon.classList.remove('spinning');
+    });
 }
 
 // Debounce save
@@ -116,15 +127,19 @@ function startSyncing() {
     firebaseListener.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.tabs) {
-            // Sync from Server
-            if (!tabs.length || data.lastUpdated > (parseInt(localStorage.getItem('sticky_last_sync')) || 0)) {
+            const remoteTime = data.lastUpdated || 0;
+            const localTime = parseInt(localStorage.getItem('sticky_last_sync')) || 0;
+
+            // Sync from Server if remote is newer or local is empty/initial
+            if (remoteTime > localTime || tabs.length <= 1) {
                 isRemoteUpdate = true;
                 tabs = data.tabs;
                 activeTabId = data.activeTabId;
-                localStorage.setItem('sticky_last_sync', data.lastUpdated);
+                localStorage.setItem('sticky_last_sync', remoteTime);
                 renderTabs();
                 renderNotes();
                 isRemoteUpdate = false;
+                console.log("Synced from server successfully.");
             }
         } else if (tabs.length > 0) {
             // Initial upload to new account

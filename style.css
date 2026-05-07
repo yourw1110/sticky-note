@@ -214,6 +214,16 @@ i:empty ~ .fallback-icon {
     display: block;
 }
 
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spinning {
+    animation: spin 1s linear infinite;
+    color: var(--primary-color) !important;
+}
+
 /* Board */
 .tabs-container {
     height: calc(48px + env(safe-area-inset-bottom));
