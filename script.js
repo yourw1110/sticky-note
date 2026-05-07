@@ -965,14 +965,24 @@ function setupEventListeners() {
     // Date input: force half-width and numbers only
     const dateInput = document.getElementById('note-date-full');
     if (dateInput) {
-        dateInput.addEventListener('input', (e) => {
+        const enforceNumeric = (e) => {
+            let val = e.target.value;
             // Convert full-width numbers to half-width
-            let val = e.target.value.replace(/[０-９]/g, (s) => {
-                return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-            });
-            // Remove non-numeric characters
-            e.target.value = val.replace(/[^0-9]/g, '');
-        });
+            val = val.replace(/[０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+            // Remove any non-numeric characters
+            val = val.replace(/[^0-9]/g, '');
+            
+            if (e.target.value !== val) {
+                e.target.value = val;
+            }
+        };
+
+        dateInput.addEventListener('input', enforceNumeric);
+        dateInput.addEventListener('compositionupdate', enforceNumeric);
+        dateInput.addEventListener('compositionend', enforceNumeric);
+        
+        // Ensure half-width even on focus
+        dateInput.addEventListener('focus', enforceNumeric);
     }
 
     // Close modal or menu on click outside
