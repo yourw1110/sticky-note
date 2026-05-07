@@ -30,6 +30,7 @@ body {
     color: var(--text-color);
     overflow: hidden;
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
     display: flex;
     flex-direction: column;
@@ -215,10 +216,10 @@ i:empty ~ .fallback-icon {
 
 /* Board */
 .tabs-container {
-    height: 48px;
+    height: calc(48px + env(safe-area-inset-bottom));
     flex-shrink: 0;
     background: #f1f3f4;
-    padding: 0 24px;
+    padding: 0 24px env(safe-area-inset-bottom);
     display: flex;
     align-items: center;
     gap: 12px;

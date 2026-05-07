@@ -7,7 +7,7 @@ if (tabs.length === 0) {
     const oldNotes = JSON.parse(localStorage.getItem('sticky_notes')) || [];
     const defaultTab = {
         id: Date.now().toString(),
-        name: 'General',
+        name: 'NOTE',
         notes: oldNotes
     };
     tabs = [defaultTab];
