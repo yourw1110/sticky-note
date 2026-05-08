@@ -551,10 +551,17 @@ i:empty ~ .fallback-icon {
     z-index: 5;
 }
 
+.action-btn i, .delete-action-icon i {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2.5px; /* Ensure all icons are bold */
+    display: block;
+}
+
 .action-btn {
     background: transparent;
     border: none;
-    color: #555 !important; /* Solid dark color */
+    color: #444 !important; /* Darker for better visibility */
     cursor: pointer;
     transition: color 0.2s;
     padding: 6px;
@@ -562,12 +569,6 @@ i:empty ~ .fallback-icon {
     align-items: center;
     justify-content: center;
     opacity: 1 !important;
-}
-
-.action-btn i {
-    width: 20px;
-    height: 20px;
-    stroke-width: 2.5px; /* Make icons bolder and more visible */
 }
 
 .action-btn:hover {
@@ -625,11 +626,11 @@ i:empty ~ .fallback-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     cursor: pointer;
-    color: #e74c3c;
+    color: #ff4757; /* Brighter red */
     transition: all 0.2s;
     padding: 0;
 }

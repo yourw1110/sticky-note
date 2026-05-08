@@ -162,6 +162,8 @@ function renderNotes() {
     board.innerHTML = '';
     const notes = getActiveNotes();
     notes.forEach(note => board.appendChild(createNoteElement(note)));
+    // Force icon creation for the whole board to ensure all new elements are covered
+    safeCreateIcons(board);
 }
 
 function createNoteElement(note) {
