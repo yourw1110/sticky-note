@@ -23,6 +23,7 @@ let isEditing = false;
 
 // Sync Logic
 let isRemoteUpdate = false;
+let isSyncLoaded = false; // NEW: Critical flag to prevent overwriting server before first load
 let firebaseListener = null;
 let saveTimeout;
 
@@ -59,7 +60,9 @@ function getActiveNotes() { const tab = getActiveTab(); if (!tab) return []; if 
 function getSyncPath() { return syncKey ? `keys/${syncKey}` : null; }
 
 function saveToFirebase() {
-    if (isRemoteUpdate || !syncKey || !db) return;
+    // CRITICAL: Do not save if sync hasn't loaded from server yet, or if it's a remote update
+    if (!isSyncLoaded || isRemoteUpdate || !syncKey || !db) return;
+    
     const syncIndicator = document.getElementById('sync-indicator');
     if (syncIndicator) {
         syncIndicator.className = 'sync-indicator syncing';
@@ -72,16 +75,14 @@ function saveToFirebase() {
     }).then(() => {
         if (syncIndicator) {
             syncIndicator.className = 'sync-indicator success';
-            setTimeout(() => syncIndicator.className = 'sync-indicator', 2000);
+            setTimeout(() => {
+                if (syncIndicator.className === 'sync-indicator success') syncIndicator.className = 'sync-indicator';
+            }, 2000);
         }
     }).catch(err => {
         log("Firebase Save Error: " + err.message);
         if (syncIndicator) {
             syncIndicator.className = 'sync-indicator error';
-        }
-        // If permission denied, alert the user
-        if (err.code === 'PERMISSION_DENIED') {
-            alert("同期エラー: データベースへのアクセス権限がありません。\nFirebaseのセキュリティルールを確認してください。");
         }
     });
 }
@@ -94,32 +95,34 @@ function saveToLocalStorage() {
 
 function debouncedSave() {
     saveToLocalStorage();
-    if (isRemoteUpdate) return;
+    if (isRemoteUpdate || !isSyncLoaded) return; // Wait for sync load
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => { if (syncKey) saveToFirebase(); }, 1500);
 }
 
 function startSyncing() {
     if (!syncKey || !db) return;
-    log("Sync Path: " + getSyncPath());
+    log("Connecting to sync key: " + syncKey);
     
+    isSyncLoaded = false; // Reset loaded flag
     if (firebaseListener) firebaseListener.off();
     firebaseListener = db.ref(getSyncPath());
     
     firebaseListener.on('value', (snapshot) => {
         const data = snapshot.val();
+        const localLastSync = localStorage.getItem('sticky_last_sync') || 0;
+        
         if (data && data.tabs) {
-            const localLastSync = localStorage.getItem('sticky_last_sync') || 0;
             const serverLastUpdated = data.lastUpdated || 0;
             
-            log(`Data received. Server: ${serverLastUpdated}, Local: ${localLastSync}`);
-            
-            if (serverLastUpdated > localLastSync) {
+            // If server data exists, we MUST consider it for the first load
+            if (!isSyncLoaded || serverLastUpdated > localLastSync) {
                 if (isEditing) {
-                    log("User is editing, skipping remote update.");
+                    log("User editing, pending update.");
+                    isSyncLoaded = true;
                     return;
                 }
-                log("Server data is newer. Updating local data...");
+                log("Updating from server...");
                 clearTimeout(saveTimeout);
                 isRemoteUpdate = true;
                 tabs = data.tabs; 
@@ -128,21 +131,25 @@ function startSyncing() {
                 saveToLocalStorage(); 
                 renderTabs(); 
                 renderNotes();
+                isSyncLoaded = true;
                 setTimeout(() => { isRemoteUpdate = false; }, 1000);
             } else if (serverLastUpdated < localLastSync) {
-                log("Local data is newer. Uploading to server...");
+                log("Local is newer, will sync to server.");
+                isSyncLoaded = true;
                 saveToFirebase();
             } else {
-                log("Data is in sync.");
+                isSyncLoaded = true;
             }
-        } else if (tabs.length > 0 && !data) {
-            log("Server is empty. Initializing server with local data...");
-            saveToFirebase();
+        } else {
+            // Server is empty - this is the ONLY case where local data can be uploaded safely
+            log("Server is empty. Local data is now the source of truth.");
+            isSyncLoaded = true;
+            if (tabs.length > 0) saveToFirebase();
         }
     }, (error) => {
-        log("Firebase Listener Error: " + error.message);
+        log("Sync Error: " + error.message);
         if (error.code === 'PERMISSION_DENIED') {
-            alert("同期エラー: 読み取り権限がありません。");
+            alert("同期エラー: Firebaseのルールを確認してください。");
         }
     });
 }
@@ -435,7 +442,8 @@ function setupEventListeners() {
             localStorage.setItem('sticky_sync_key', syncKey);
             syncModal.classList.remove('show');
             log("Sync key updated: " + syncKey);
-            // Clear local last sync to force re-fetch from new key
+            // Reset state to force fresh load from server
+            isSyncLoaded = false;
             localStorage.setItem('sticky_last_sync', 0);
             startSyncing();
         } else {
@@ -448,6 +456,7 @@ function setupEventListeners() {
             syncKey = '';
             localStorage.removeItem('sticky_sync_key');
             localStorage.removeItem('sticky_last_sync');
+            isSyncLoaded = false;
             stopSyncing();
             syncModal.classList.remove('show');
             location.reload();
@@ -476,6 +485,7 @@ function runInitialSetup() {
             firebase.initializeApp(firebaseConfig); db = firebase.database();
             log("Firebase Initialized");
             if (syncKey) startSyncing();
+            else isSyncLoaded = true; // No sync key, local is truth
         } else {
             log("Firebase missing - retrying...");
             setTimeout(runInitialSetup, 2000); return;
