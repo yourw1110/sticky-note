@@ -695,7 +695,7 @@ function runInitialSetup() {
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
             auth = firebase.auth();
-            firebase.database().enablePersistence().catch(err => console.warn("Persistence failed", err));
+            log("Firebase Initialized");
         }
         if (tabs.length === 0) {
             const oldNotes = JSON.parse(localStorage.getItem('sticky_notes')) || [];
