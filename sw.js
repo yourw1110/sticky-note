@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sticky-note-v7';
+const CACHE_NAME = 'sticky-note-v8';
 const ASSETS_TO_CACHE = [
   'index.html',
   'style.css',
@@ -17,11 +17,9 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.all(
         ASSETS_TO_CACHE.map((url) => {
-          return fetch(url, { mode: 'no-cors' }) // Use no-cors for external CDNs to ensure they cache
-            .then((response) => {
-              return cache.put(url, response);
-            })
-            .catch((err) => console.warn('Cache failed during install:', url, err));
+          return fetch(url, { mode: 'no-cors' })
+            .then((response) => cache.put(url, response))
+            .catch((err) => console.warn('Cache failed:', url));
         })
       );
     })
@@ -40,14 +38,15 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  
   const url = new URL(event.request.url);
+  
+  // Origins that should be handled by the Service Worker
   const isLocal = url.origin === self.location.origin;
   const isFirebase = url.origin === 'https://www.gstatic.com';
   const isLucide = url.origin === 'https://unpkg.com';
+  const isGoogleImg = url.origin.includes('googleusercontent.com');
 
-  if (isLocal || isFirebase || isLucide) {
-    // Navigation requests
+  if (isLocal || isFirebase || isLucide || isGoogleImg) {
     if (event.request.mode === 'navigate') {
       event.respondWith(
         fetch(event.request)
@@ -61,7 +60,6 @@ self.addEventListener('fetch', (event) => {
       return;
     }
 
-    // Standard assets (including Firebase SDKs)
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         const fetchPromise = fetch(event.request).then((networkResponse) => {
@@ -70,7 +68,7 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
           }
           return networkResponse;
-        });
+        }).catch(() => {});
         return cachedResponse || fetchPromise;
       })
     );
