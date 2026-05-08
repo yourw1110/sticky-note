@@ -1,4 +1,28 @@
-// Visual Logger for Debugging on Mobile
+// 1. Export critical functions to window IMMEDIATELY
+window.login = function() {
+    if (typeof log === 'function') log("Login clicked");
+    if (typeof auth === 'undefined' || !auth) {
+        alert("認証システムが読み込まれていません。通信状況を確認してください。\n(Firebase SDK may be blocked or still loading)");
+        return;
+    }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        auth.signInWithRedirect(provider);
+    } else {
+        auth.signInWithPopup(provider).catch(err => {
+            if (typeof log === 'function') log("Login Error: " + err.message);
+            alert(`ログインに失敗しました: ${err.message}`);
+        });
+    }
+};
+
+window.logout = function() {
+    if (typeof auth !== 'undefined' && auth && confirm("ログアウトしますか？")) {
+        auth.signOut();
+    }
+};
+
+// 2. Visual Logger
 function log(msg) {
     console.log(msg);
     const debugEl = document.getElementById('debug-log');
@@ -8,19 +32,25 @@ function log(msg) {
     }
 }
 
-// State Management
-let tabs = JSON.parse(localStorage.getItem('sticky_tabs')) || [];
+// 3. State Management (with try-catch)
+let tabs = [];
+try {
+    tabs = JSON.parse(localStorage.getItem('sticky_tabs')) || [];
+} catch(e) {
+    console.error("Storage parse error", e);
+    tabs = [];
+}
 let activeTabId = localStorage.getItem('sticky_active_tab');
 let currentType = 'memo';
 let selectedColor = 'yellow';
 let isSelectionMode = false;
 let selectedNoteIds = new Set();
 let sortOrder = 'desc';
+let isEditing = false;
 
 // Sync Logic
 let currentUser = null;
 let isRemoteUpdate = false;
-let isEditing = false; // Flag to prevent re-render during editing
 let firebaseListener = null;
 let saveTimeout;
 
@@ -38,10 +68,21 @@ function safeCreateIcons(parentElement) {
     }
 }
 
-// Global Drag/Resize State
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyBUEjOw7p8Uf7KlangC2-VlDSQaN5pgUq4",
+    authDomain: "sticky-note-f123d.firebaseapp.com",
+    databaseURL: "https://sticky-note-f123d-default-rtdb.firebaseio.com",
+    projectId: "sticky-note-f123d",
+    storageBucket: "sticky-note-f123d.firebasestorage.app",
+    messagingSenderId: "21493131669",
+    appId: "1:21493131669:web:653215b69ad82a8bc0ee9c"
+};
+
+// Interaction State
 let draggedNote = null;
 let resizedNote = null;
-let dragStartX, dragStartY, dragOffsetX, dragOffsetY;
+let dragOffsetX, dragOffsetY;
 let resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight;
 
 function getActiveTab() {
@@ -61,10 +102,8 @@ function getSyncPath() {
 
 function saveToFirebase() {
     if (isRemoteUpdate || !currentUser || !db) return;
-    
     const syncIcon = document.querySelector('#auth-container i');
     if (syncIcon) syncIcon.classList.add('spinning');
-
     db.ref(getSyncPath()).set({
         tabs: tabs,
         activeTabId: activeTabId,
@@ -93,7 +132,6 @@ function saveToLocalStorage() {
 function debouncedSave() {
     saveToLocalStorage();
     if (isRemoteUpdate) return;
-    
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
         if (currentUser) saveToFirebase();
@@ -106,7 +144,6 @@ function handleAuth() {
         currentUser = user;
         const loginBtn = document.getElementById('login-btn');
         const userProfile = document.getElementById('user-profile');
-        
         if (user) {
             if (loginBtn) loginBtn.style.display = 'none';
             if (userProfile) {
@@ -115,11 +152,8 @@ function handleAuth() {
                 if (userPhoto) {
                     userPhoto.src = user.photoURL;
                     userPhoto.onclick = () => {
-                        if (confirm("同期を再試行しますか？")) {
-                            startSyncing();
-                        } else if (confirm("ログアウトしますか？")) {
-                            logout();
-                        }
+                        if (confirm("同期を再試行しますか？")) startSyncing();
+                        else if (confirm("ログアウトしますか？")) logout();
                     };
                 }
                 const userName = document.getElementById('user-name');
@@ -139,21 +173,14 @@ function handleAuth() {
 function startSyncing() {
     if (!currentUser || !db) return;
     if (firebaseListener) firebaseListener.off();
-    
     firebaseListener = db.ref(getSyncPath());
     firebaseListener.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.tabs) {
             const localLastSync = localStorage.getItem('sticky_last_sync') || 0;
             const serverLastUpdated = data.lastUpdated || 0;
-            
             if (serverLastUpdated > localLastSync) {
-                // IMPORTANT: Prevent re-render if user is currently editing something
-                if (isEditing) {
-                    log("Sync: Remote data available, but skipping render while editing.");
-                    return;
-                }
-
+                if (isEditing) return;
                 clearTimeout(saveTimeout);
                 isRemoteUpdate = true;
                 tabs = data.tabs;
@@ -173,36 +200,11 @@ function startSyncing() {
 }
 
 function stopSyncing() {
-    if (firebaseListener) {
-        firebaseListener.off();
-        firebaseListener = null;
-    }
+    if (firebaseListener) { firebaseListener.off(); firebaseListener = null; }
 }
 
-window.login = function() {
-    if (!auth) {
-        alert("認証システムが読み込まれていません。通信状況を確認してください。");
-        return;
-    }
-    const provider = new firebase.auth.GoogleAuthProvider();
-    if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-        auth.signInWithRedirect(provider);
-    } else {
-        auth.signInWithPopup(provider).catch(err => {
-            log("Login Error: " + err.message);
-            alert(`ログインに失敗しました: ${err.message}`);
-        });
-    }
-};
-
-window.logout = function() {
-    if (auth && confirm("ログアウトしますか？")) {
-        auth.signOut();
-    }
-};
-
 function renderNotes() {
-    if (isEditing) return; // Never render while editing
+    if (isEditing) return;
     const board = document.getElementById('board');
     if (!board) return;
     board.innerHTML = '';
@@ -216,24 +218,17 @@ function renderNotes() {
 function createNoteElement(note) {
     const el = document.createElement('div');
     el.className = `sticky-note bg-${note.color}`;
-    el.style.left = `${note.x}px`;
-    el.style.top = `${note.y}px`;
-    el.id = `note-${note.id}`;
-    el.dataset.id = note.id;
-    
+    el.style.left = `${note.x}px`; el.style.top = `${note.y}px`;
+    el.id = `note-${note.id}`; el.dataset.id = note.id;
     if (isSelectionMode) el.classList.add('selection-mode');
     if (selectedNoteIds.has(note.id)) el.classList.add('selected');
 
     let formattedDate = '';
     if (note.date) {
         const parts = note.date.split(/[-/.]/);
-        if (parts.length >= 2) {
-            formattedDate = `${parseInt(parts[parts.length-2])}/${parseInt(parts[parts.length-1])}`;
-        } else {
-            formattedDate = note.date;
-        }
+        if (parts.length >= 2) formattedDate = `${parseInt(parts[parts.length-2])}/${parseInt(parts[parts.length-1])}`;
+        else formattedDate = note.date;
     }
-
     const dateDisplay = `<span class="note-date">${note.date ? formattedDate : ''}</span>`;
     const titleDisplay = `<span class="note-title-text">${note.title || 'タイトルなし'}</span>`;
 
@@ -243,106 +238,41 @@ function createNoteElement(note) {
     } else {
         const activeTodos = (note.todos || []).filter(t => !t.done);
         const completedTodos = (note.todos || []).filter(t => t.done);
-        
         contentHtml = `<div class="note-content">
             <div id="todo-list-${note.id}">
                 ${activeTodos.map((todo, idx) => {
-                    const originalIdx = note.todos.indexOf(todo);
-                    return `
-                    <div class="todo-item">
-                        <input type="checkbox" onchange="toggleTodo(${note.id}, ${originalIdx})">
-                        <span contenteditable="true" 
-                               onfocus="isEditing=true"
-                               onblur="isEditing=false; updateTodoText(${note.id}, ${originalIdx}, this.innerText)"
-                               onkeydown="handleTodoKeydown(event, ${note.id})">${todo.text}</span>
-                        <button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${originalIdx})">
-                            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
-                        </button>
-                    </div>
-                `}).join('')}
-                <button class="add-todo-btn" onclick="addTodoItem(${note.id})">
-                    <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
-                </button>
+                    const oIdx = note.todos.indexOf(todo);
+                    return `<div class="todo-item"><input type="checkbox" onchange="toggleTodo(${note.id}, ${oIdx})"><span contenteditable="true" onfocus="isEditing=true" onblur="isEditing=false; updateTodoText(${note.id}, ${oIdx}, this.innerText)" onkeydown="handleTodoKeydown(event, ${note.id})">${todo.text}</span><button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${oIdx})"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button></div>`
+                }).join('')}
+                <button class="add-todo-btn" onclick="addTodoItem(${note.id})"><i data-lucide="plus" style="width: 16px; height: 16px;"></i></button>
                 <div class="completed-todos" style="margin-top: 12px; opacity: 0.6;">
                     ${completedTodos.map((todo, idx) => {
-                        const originalIdx = note.todos.indexOf(todo);
-                        return `
-                        <div class="todo-item checked">
-                            <input type="checkbox" checked onchange="toggleTodo(${note.id}, ${originalIdx})">
-                            <span contenteditable="true" onfocus="isEditing=true" onblur="isEditing=false; updateTodoText(${note.id}, ${originalIdx}, this.innerText)">${todo.text}</span>
-                            <button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${originalIdx})">
-                                <i data-lucide="x" style="width: 14px; height: 14px;"></i>
-                            </button>
-                        </div>
-                    `}).join('')}
+                        const oIdx = note.todos.indexOf(todo);
+                        return `<div class="todo-item checked"><input type="checkbox" checked onchange="toggleTodo(${note.id}, ${oIdx})"><span contenteditable="true" onfocus="isEditing=true" onblur="isEditing=false; updateTodoText(${note.id}, ${oIdx}, this.innerText)">${todo.text}</span><button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${oIdx})"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button></div>`
+                    }).join('')}
                 </div>
             </div>
         </div>`;
     }
 
-    el.innerHTML = `
-        <div class="note-header">
-            ${dateDisplay}
-            ${titleDisplay}
-        </div>
-        ${contentHtml}
-        <div class="note-actions">
-            <button class="action-btn menu-toggle">
-                <i data-lucide="more-horizontal" style="width: 18px; height: 18px;"></i>
-            </button>
-            <div class="note-menu">
-                <div class="color-swatches">
-                    <div class="swatch bg-yellow" data-color="yellow"></div>
-                    <div class="swatch bg-pink" data-color="pink"></div>
-                    <div class="swatch bg-blue" data-color="blue"></div>
-                    <div class="swatch bg-green" data-color="green"></div>
-                    <div class="swatch bg-purple" data-color="purple"></div>
-                </div>
-                <div class="menu-divider"></div>
-                <div class="delete-action-icon" title="削除">
-                    <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
-                </div>
-            </div>
-        </div>
-        <div class="resizer"></div>
-    `;
-
-    // Internal Event Listeners
+    el.innerHTML = `<div class="note-header">${dateDisplay}${titleDisplay}</div>${contentHtml}<div class="note-actions"><button class="action-btn menu-toggle"><i data-lucide="more-horizontal" style="width: 18px; height: 18px;"></i></button><div class="note-menu"><div class="color-swatches"><div class="swatch bg-yellow" data-color="yellow"></div><div class="swatch bg-pink" data-color="pink"></div><div class="swatch bg-blue" data-color="blue"></div><div class="swatch bg-green" data-color="green"></div><div class="swatch bg-purple" data-color="purple"></div></div><div class="menu-divider"></div><div class="delete-action-icon" title="削除"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></div></div></div><div class="resizer"></div>`;
     el.querySelector('.note-title-text').addEventListener('dblclick', (e) => makeTitleEditable(note.id, e.target));
     el.querySelector('.note-date').addEventListener('dblclick', (e) => makeDateEditable(note.id, e.target));
-    
     const menuToggle = el.querySelector('.menu-toggle');
     const noteMenu = el.querySelector('.note-menu');
     menuToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.querySelectorAll('.note-menu.show').forEach(m => {
-            if (m !== noteMenu) m.classList.remove('show');
-        });
+        e.stopPropagation(); document.querySelectorAll('.note-menu.show').forEach(m => { if (m !== noteMenu) m.classList.remove('show'); });
         noteMenu.classList.toggle('show');
     });
-
-    el.querySelector('.delete-action-icon').addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteNote(note.id);
-    });
-
-    el.querySelectorAll('.swatch').forEach(swatch => {
-        swatch.addEventListener('click', (e) => {
-            e.stopPropagation();
-            changeNoteColor(note.id, swatch.dataset.color);
-        });
-    });
-
+    el.querySelector('.delete-action-icon').addEventListener('click', (e) => { e.stopPropagation(); deleteNote(note.id); });
+    el.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', (e) => { e.stopPropagation(); changeNoteColor(note.id, sw.dataset.color); }));
     el.addEventListener('mousedown', (e) => handleStartInteraction(e, el, note));
     el.addEventListener('touchstart', (e) => handleStartInteraction(e, el, note), { passive: false });
-
     const resizer = el.querySelector('.resizer');
     resizer.addEventListener('mousedown', (e) => handleStartResize(e, el, note));
     resizer.addEventListener('touchstart', (e) => handleStartResize(e, el, note), { passive: false });
-
     if (note.width) el.style.width = `${note.width}px`;
     if (note.height) el.style.height = `${note.height}px`;
-
     safeCreateIcons(el);
     return el;
 }
@@ -352,21 +282,19 @@ function handleStartInteraction(e, el, note) {
     const target = e.target;
     if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.getAttribute('contenteditable') === 'true' || target.tagName === 'BUTTON' || target.closest('button')) return;
     draggedNote = { el, note };
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    const cX = e.clientX || (e.touches && e.touches[0].clientX);
+    const cY = e.clientY || (e.touches && e.touches[0].clientY);
     const rect = el.getBoundingClientRect();
-    dragOffsetX = clientX - rect.left;
-    dragOffsetY = clientY - rect.top;
-    el.style.zIndex = 1000;
-    el.classList.add('dragging');
+    dragOffsetX = cX - rect.left; dragOffsetY = cY - rect.top;
+    el.style.zIndex = 1000; el.classList.add('dragging');
 }
 
 function handleStartResize(e, el, note) {
     e.preventDefault(); e.stopPropagation();
     resizedNote = { el, note };
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-    resizeStartX = clientX; resizeStartY = clientY;
+    const cX = e.clientX || (e.touches && e.touches[0].clientX);
+    const cY = e.clientY || (e.touches && e.touches[0].clientY);
+    resizeStartX = cX; resizeStartY = cY;
     resizeStartWidth = el.offsetWidth; resizeStartHeight = el.offsetHeight;
     el.style.zIndex = 1000;
 }
@@ -377,23 +305,17 @@ document.addEventListener('mouseup', () => stopGlobalInteraction());
 document.addEventListener('touchend', () => stopGlobalInteraction());
 
 function doGlobalInteraction(e) {
+    const cX = e.clientX || (e.touches && e.touches[0].clientX);
+    const cY = e.clientY || (e.touches && e.touches[0].clientY);
     if (draggedNote) {
-        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-        const x = clientX - dragOffsetX;
-        const y = clientY - dragOffsetY;
-        draggedNote.el.style.left = `${x}px`;
-        draggedNote.el.style.top = `${y}px`;
-        draggedNote.note.x = x;
-        draggedNote.note.y = y;
+        const x = cX - dragOffsetX; const y = cY - dragOffsetY;
+        draggedNote.el.style.left = `${x}px`; draggedNote.el.style.top = `${y}px`;
+        draggedNote.note.x = x; draggedNote.note.y = y;
         if (e.touches) e.preventDefault();
     } else if (resizedNote) {
-        const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-        const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-        const width = resizeStartWidth + (clientX - resizeStartX);
-        const height = resizeStartHeight + (clientY - resizeStartY);
-        if (width > 150) { resizedNote.el.style.width = width + 'px'; resizedNote.note.width = width; }
-        if (height > 150) { resizedNote.el.style.height = height + 'px'; resizedNote.note.height = height; }
+        const w = resizeStartWidth + (cX - resizeStartX); const h = resizeStartHeight + (cY - resizeStartY);
+        if (w > 150) { resizedNote.el.style.width = w + 'px'; resizedNote.note.width = w; }
+        if (h > 150) { resizedNote.el.style.height = h + 'px'; resizedNote.note.height = h; }
         if (e.touches) e.preventDefault();
     }
 }
@@ -404,14 +326,12 @@ function stopGlobalInteraction() {
 }
 
 function updateNoteColor(id, color) {
-    const notes = getActiveNotes();
-    const note = notes.find(n => n.id === id);
+    const notes = getActiveNotes(); const note = notes.find(n => n.id === id);
     if (note) { note.color = color; debouncedSave(); renderNotes(); }
 }
 
 function updateNoteContent(id, content) {
-    const notes = getActiveNotes();
-    const note = notes.find(n => n.id === id);
+    const notes = getActiveNotes(); const note = notes.find(n => n.id === id);
     if (note) { note.content = content; debouncedSave(); }
 }
 
@@ -419,9 +339,7 @@ function addNote() {
     const title = document.getElementById('note-title').value.trim();
     const dateFull = document.getElementById('note-date-full').value.trim();
     let formattedDate = '';
-    if (dateFull && dateFull.length === 8) {
-        formattedDate = `${dateFull.substring(0, 4)}-${dateFull.substring(4, 6)}-${dateFull.substring(6, 8)}`;
-    }
+    if (dateFull && dateFull.length === 8) formattedDate = `${dateFull.substring(0, 4)}-${dateFull.substring(4, 6)}-${dateFull.substring(6, 8)}`;
     const notes = getActiveNotes();
     const newNote = {
         id: Date.now(), type: currentType, title: title || (currentType === 'memo' ? 'MEMO' : 'TODO'),
@@ -440,10 +358,8 @@ function deleteNote(id) {
 }
 
 function toggleNoteSelection(id) {
-    if (selectedNoteIds.has(id)) selectedNoteIds.delete(id);
-    else selectedNoteIds.add(id);
-    const el = document.getElementById(`note-${id}`);
-    if (el) el.classList.toggle('selected');
+    if (selectedNoteIds.has(id)) selectedNoteIds.delete(id); else selectedNoteIds.add(id);
+    const el = document.getElementById(`note-${id}`); if (el) el.classList.toggle('selected');
     updateBatchUI();
 }
 
@@ -476,26 +392,22 @@ function toggleSelectionMode() {
 }
 
 function toggleTodo(noteId, todoIdx) {
-    const notes = getActiveNotes();
-    const note = notes.find(n => n.id === noteId);
+    const notes = getActiveNotes(); const note = notes.find(n => n.id === noteId);
     if (note && note.todos[todoIdx]) { note.todos[todoIdx].done = !note.todos[todoIdx].done; debouncedSave(); renderNotes(); }
 }
 
 function updateTodoText(noteId, todoIdx, text) {
-    const notes = getActiveNotes();
-    const note = notes.find(n => n.id === noteId);
+    const notes = getActiveNotes(); const note = notes.find(n => n.id === noteId);
     if (note && note.todos[todoIdx]) { note.todos[todoIdx].text = text; debouncedSave(); }
 }
 
 function deleteTodoItem(noteId, todoIdx) {
-    const notes = getActiveNotes();
-    const note = notes.find(n => n.id === noteId);
+    const notes = getActiveNotes(); const note = notes.find(n => n.id === noteId);
     if (note && note.todos) { note.todos.splice(todoIdx, 1); debouncedSave(); renderNotes(); }
 }
 
 function addTodoItem(noteId) {
-    const notes = getActiveNotes();
-    const note = notes.find(n => n.id === noteId);
+    const notes = getActiveNotes(); const note = notes.find(n => n.id === noteId);
     if (note) {
         note.todos.push({ text: '', done: false }); debouncedSave(); renderNotes();
         setTimeout(() => {
@@ -550,10 +462,7 @@ function sortNotesByDate() {
     const tab = getActiveTab(); if (!tab) return;
     sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
     const icon = document.querySelector('#sort-btn i');
-    if (icon) {
-        icon.setAttribute('data-lucide', sortOrder === 'asc' ? 'arrow-up-az' : 'arrow-down-az');
-        safeCreateIcons(document.getElementById('sort-btn'));
-    }
+    if (icon) { icon.setAttribute('data-lucide', sortOrder === 'asc' ? 'arrow-up-az' : 'arrow-down-az'); safeCreateIcons(document.getElementById('sort-btn')); }
     const withDate = tab.notes.filter(n => n.date).sort((a, b) => sortOrder === 'asc' ? new Date(a.date) - new Date(b.date) : new Date(b.date) - new Date(a.date));
     const withoutDate = tab.notes.filter(n => !n.date);
     tab.notes = [...withDate, ...withoutDate];
@@ -569,7 +478,7 @@ function sortNotesByDate() {
 }
 
 function renderTabs() {
-    if (isEditing) return; // Prevent re-render while editing
+    if (isEditing) return;
     const list = document.getElementById('tabs-list'); if (!list) return;
     list.innerHTML = '';
     tabs.forEach(tab => {
@@ -577,14 +486,9 @@ function renderTabs() {
         el.className = `tab-item ${tab.id == activeTabId ? 'active' : ''}`;
         el.addEventListener('click', () => switchTab(tab.id));
         el.addEventListener('dblclick', (e) => { e.stopPropagation(); makeTabNameEditable(el, tab.id); });
-        
-        // Prevent default long-press menu on tabs
         el.addEventListener('contextmenu', (e) => e.preventDefault());
-
         let longPressTimer;
-        el.addEventListener('touchstart', (e) => {
-            longPressTimer = setTimeout(() => { makeTabNameEditable(el, tab.id); }, 600);
-        }, { passive: true });
+        el.addEventListener('touchstart', (e) => { longPressTimer = setTimeout(() => { makeTabNameEditable(el, tab.id); }, 600); }, { passive: true });
         el.addEventListener('touchend', () => clearTimeout(longPressTimer));
         el.addEventListener('touchmove', () => clearTimeout(longPressTimer));
         el.innerHTML = `<span class="tab-name">${tab.name}</span>${tabs.length > 1 ? `<span class="tab-delete-btn" onclick="event.stopPropagation(); deleteTab('${tab.id}')"><i data-lucide="x" style="width: 14px; height: 14px;"></i></span>` : ''}`;
@@ -646,10 +550,7 @@ function setupEventListeners() {
         });
     });
     document.querySelectorAll('.color-option').forEach(opt => {
-        opt.addEventListener('click', () => {
-            document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
-            opt.classList.add('active'); selectedColor = opt.dataset.color;
-        });
+        opt.addEventListener('click', () => { document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active')); opt.classList.add('active'); selectedColor = opt.dataset.color; });
     });
     const saveBtn = document.getElementById('save-note');
     if (saveBtn) saveBtn.addEventListener('click', addNote);
@@ -689,6 +590,7 @@ function closeModal() {
 }
 
 function runInitialSetup() {
+    log("Initial Setup Start");
     try {
         setupEventListeners();
         if (typeof firebase !== 'undefined') {
@@ -696,6 +598,10 @@ function runInitialSetup() {
             db = firebase.database();
             auth = firebase.auth();
             log("Firebase Initialized");
+        } else {
+            log("Firebase missing - retrying...");
+            setTimeout(runInitialSetup, 2000); // Retry after 2s
+            return;
         }
         if (tabs.length === 0) {
             const oldNotes = JSON.parse(localStorage.getItem('sticky_notes')) || [];
@@ -710,5 +616,5 @@ function runInitialSetup() {
     }
 }
 
-if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', runInitialSetup); }
-else { runInitialSetup(); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runInitialSetup);
+else runInitialSetup();

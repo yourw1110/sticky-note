@@ -1,10 +1,14 @@
-const CACHE_NAME = 'sticky-note-v6';
+const CACHE_NAME = 'sticky-note-v7';
 const ASSETS_TO_CACHE = [
   'index.html',
   'style.css',
   'script.js',
   'icon.svg',
-  'manifest.json'
+  'manifest.json',
+  'https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js',
+  'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js',
+  'https://unpkg.com/lucide@latest'
 ];
 
 self.addEventListener('install', (event) => {
@@ -13,11 +17,11 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.all(
         ASSETS_TO_CACHE.map((url) => {
-          return fetch(url)
+          return fetch(url, { mode: 'no-cors' }) // Use no-cors for external CDNs to ensure they cache
             .then((response) => {
-              if (response.ok) return cache.put(url, response);
+              return cache.put(url, response);
             })
-            .catch((err) => console.warn('Cache failed during install:', url));
+            .catch((err) => console.warn('Cache failed during install:', url, err));
         })
       );
     })
@@ -39,45 +43,25 @@ self.addEventListener('fetch', (event) => {
   
   const url = new URL(event.request.url);
   const isLocal = url.origin === self.location.origin;
+  const isFirebase = url.origin === 'https://www.gstatic.com';
+  const isLucide = url.origin === 'https://unpkg.com';
 
-  if (isLocal) {
-    // Navigation requests (Page reload / Open PWA)
+  if (isLocal || isFirebase || isLucide) {
+    // Navigation requests
     if (event.request.mode === 'navigate') {
       event.respondWith(
         fetch(event.request)
           .then((response) => {
-            // Update cache while we are at it
             const resClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
             return response;
           })
-          .catch(() => {
-            // OFFLINE fallback: always try to return index.html
-            return caches.match('index.html').then((cachedIndex) => {
-                if (cachedIndex) return cachedIndex;
-                // If index.html is not in cache, try to match root
-                return caches.match('/');
-            });
-          })
+          .catch(() => caches.match('index.html'))
       );
       return;
     }
 
-    // Standard local assets
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        const fetchPromise = fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const resClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
-          }
-          return networkResponse;
-        });
-        return cachedResponse || fetchPromise;
-      })
-    );
-  } else {
-    // External assets (Google Fonts, Lucide)
+    // Standard assets (including Firebase SDKs)
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         const fetchPromise = fetch(event.request).then((networkResponse) => {
@@ -86,7 +70,7 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
           }
           return networkResponse;
-        }).catch(() => {});
+        });
         return cachedResponse || fetchPromise;
       })
     );
