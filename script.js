@@ -61,21 +61,27 @@ function getSyncPath() { return syncKey ? `keys/${syncKey}` : null; }
 function saveToFirebase() {
     if (isRemoteUpdate || !syncKey || !db) return;
     const syncIndicator = document.getElementById('sync-indicator');
-    if (syncIndicator) syncIndicator.classList.add('syncing');
+    if (syncIndicator) {
+        syncIndicator.className = 'sync-indicator syncing';
+    }
     
     db.ref(getSyncPath()).set({
-        tabs: tabs, activeTabId: activeTabId, lastUpdated: Date.now()
+        tabs: tabs, 
+        activeTabId: activeTabId, 
+        lastUpdated: Date.now()
     }).then(() => {
         if (syncIndicator) {
-            syncIndicator.classList.remove('syncing');
-            syncIndicator.classList.add('success');
-            setTimeout(() => syncIndicator.classList.remove('success'), 2000);
+            syncIndicator.className = 'sync-indicator success';
+            setTimeout(() => syncIndicator.className = 'sync-indicator', 2000);
         }
     }).catch(err => {
-        log("Firebase save error: " + err.message);
+        log("Firebase Save Error: " + err.message);
         if (syncIndicator) {
-            syncIndicator.classList.remove('syncing');
-            syncIndicator.classList.add('error');
+            syncIndicator.className = 'sync-indicator error';
+        }
+        // If permission denied, alert the user
+        if (err.code === 'PERMISSION_DENIED') {
+            alert("同期エラー: データベースへのアクセス権限がありません。\nFirebaseのセキュリティルールを確認してください。");
         }
     });
 }
@@ -95,27 +101,48 @@ function debouncedSave() {
 
 function startSyncing() {
     if (!syncKey || !db) return;
-    log("Starting Sync with key: " + syncKey);
+    log("Sync Path: " + getSyncPath());
+    
     if (firebaseListener) firebaseListener.off();
     firebaseListener = db.ref(getSyncPath());
+    
     firebaseListener.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.tabs) {
             const localLastSync = localStorage.getItem('sticky_last_sync') || 0;
             const serverLastUpdated = data.lastUpdated || 0;
+            
+            log(`Data received. Server: ${serverLastUpdated}, Local: ${localLastSync}`);
+            
             if (serverLastUpdated > localLastSync) {
-                if (isEditing) return;
+                if (isEditing) {
+                    log("User is editing, skipping remote update.");
+                    return;
+                }
+                log("Server data is newer. Updating local data...");
                 clearTimeout(saveTimeout);
                 isRemoteUpdate = true;
-                tabs = data.tabs; activeTabId = data.activeTabId;
+                tabs = data.tabs; 
+                activeTabId = data.activeTabId;
                 localStorage.setItem('sticky_last_sync', serverLastUpdated);
-                saveToLocalStorage(); renderTabs(); renderNotes();
+                saveToLocalStorage(); 
+                renderTabs(); 
+                renderNotes();
                 setTimeout(() => { isRemoteUpdate = false; }, 1000);
             } else if (serverLastUpdated < localLastSync) {
+                log("Local data is newer. Uploading to server...");
                 saveToFirebase();
+            } else {
+                log("Data is in sync.");
             }
         } else if (tabs.length > 0 && !data) {
+            log("Server is empty. Initializing server with local data...");
             saveToFirebase();
+        }
+    }, (error) => {
+        log("Firebase Listener Error: " + error.message);
+        if (error.code === 'PERMISSION_DENIED') {
+            alert("同期エラー: 読み取り権限がありません。");
         }
     });
 }
@@ -408,6 +435,8 @@ function setupEventListeners() {
             localStorage.setItem('sticky_sync_key', syncKey);
             syncModal.classList.remove('show');
             log("Sync key updated: " + syncKey);
+            // Clear local last sync to force re-fetch from new key
+            localStorage.setItem('sticky_last_sync', 0);
             startSyncing();
         } else {
             alert("キーを入力してください");
@@ -418,6 +447,7 @@ function setupEventListeners() {
         if (confirm("同期を解除し、キーを削除しますか？\n（付箋データ自体はクラウドに残ります）")) {
             syncKey = '';
             localStorage.removeItem('sticky_sync_key');
+            localStorage.removeItem('sticky_last_sync');
             stopSyncing();
             syncModal.classList.remove('show');
             location.reload();
