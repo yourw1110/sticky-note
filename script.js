@@ -1,42 +1,17 @@
 // State Management
 let tabs = JSON.parse(localStorage.getItem('sticky_tabs')) || [];
 let activeTabId = localStorage.getItem('sticky_active_tab');
-
-// Migration & Initialization
-if (tabs.length === 0) {
-    const oldNotes = JSON.parse(localStorage.getItem('sticky_notes')) || [];
-    const defaultTab = {
-        id: Date.now().toString(),
-        name: 'NOTE',
-        notes: oldNotes
-    };
-    tabs = [defaultTab];
-    activeTabId = defaultTab.id;
-    localStorage.removeItem('sticky_notes');
-    debouncedSave();
-}
-
-if (!activeTabId && tabs.length > 0) {
-    activeTabId = tabs[0].id;
-    debouncedSave();
-}
-
-function getActiveTab() {
-    return tabs.find(t => t.id == activeTabId);
-}
-
-function getActiveNotes() {
-    const tab = getActiveTab();
-    if (!tab) return [];
-    if (!tab.notes) tab.notes = []; // Ensure notes array exists (Firebase removes empty arrays)
-    return tab.notes;
-}
-
 let currentType = 'memo';
 let selectedColor = 'yellow';
 let isSelectionMode = false;
 let selectedNoteIds = new Set();
 let sortOrder = 'desc';
+
+// Sync Logic
+let currentUser = null;
+let isRemoteUpdate = false;
+let firebaseListener = null;
+let saveTimeout;
 
 // Firebase Configuration
 const firebaseConfig = {
@@ -49,27 +24,23 @@ const firebaseConfig = {
     appId: "1:21493131669:web:653215b69ad82a8bc0ee9c"
 };
 
-// Sync Logic
-let currentUser = null;
-let isRemoteUpdate = false;
-let firebaseListener = null;
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
 
-// Initialize Firebase safely
-function initFirebase() {
-    if (typeof firebase === 'undefined') {
-        console.error("Firebase SDK not loaded. Retrying in 1s...");
-        setTimeout(initFirebase, 1000);
-        return false;
-    }
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    return true;
+function getActiveTab() {
+    return tabs.find(t => t.id == activeTabId);
 }
 
-const db = () => firebase.database();
-const auth = () => firebase.auth();
+function getActiveNotes() {
+    const tab = getActiveTab();
+    if (!tab) return [];
+    if (!tab.notes) tab.notes = [];
+    return tab.notes;
+}
 
+// Sync Logic Helpers
 function getSyncPath() {
     return currentUser ? `users/${currentUser.uid}` : null;
 }
@@ -77,23 +48,24 @@ function getSyncPath() {
 function saveToFirebase() {
     if (isRemoteUpdate || !currentUser) return;
     
+    // Show sync start feedback
     const syncIcon = document.querySelector('#auth-container i');
     if (syncIcon) syncIcon.classList.add('spinning');
 
-    db().ref(getSyncPath()).set({
+    db.ref(getSyncPath()).set({
         tabs: tabs,
         activeTabId: activeTabId,
         lastUpdated: Date.now()
     }).then(() => {
+        // Success feedback
         if (syncIcon) setTimeout(() => syncIcon.classList.remove('spinning'), 500);
     }).catch(err => {
-        console.error("Firebase save error:", err);
+        console.error("Firebase save error (Check Rules!):", err);
         if (syncIcon) syncIcon.classList.remove('spinning');
     });
 }
 
 // Debounce save
-let saveTimeout;
 function debouncedSave() {
     saveToLocalStorage();
     if (isRemoteUpdate) return;
@@ -106,13 +78,13 @@ function debouncedSave() {
 
 // Auth Handlers
 function handleAuth() {
-    if (typeof firebase === 'undefined') return;
-    auth().onAuthStateChanged((user) => {
+    auth.onAuthStateChanged((user) => {
         currentUser = user;
         const loginBtn = document.getElementById('login-btn');
         const userProfile = document.getElementById('user-profile');
         
         if (user) {
+            // Logged In
             loginBtn.style.display = 'none';
             userProfile.style.display = 'flex';
             const userPhoto = document.getElementById('user-photo');
@@ -125,11 +97,16 @@ function handleAuth() {
                 }
             };
             document.getElementById('user-name').innerText = user.displayName;
+            
+            // Start Syncing
             startSyncing();
         } else {
+            // Logged Out
             loginBtn.style.display = 'flex';
             userProfile.style.display = 'none';
             stopSyncing();
+            
+            // On logout, keep local data but stop server sync
             renderTabs();
             renderNotes();
         }
@@ -138,10 +115,8 @@ function handleAuth() {
 
 function startSyncing() {
     if (firebaseListener) firebaseListener.off();
-    const path = getSyncPath();
-    if (!path) return;
-
-    firebaseListener = db().ref(path);
+    
+    firebaseListener = db.ref(getSyncPath());
     firebaseListener.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.tabs) {
@@ -183,42 +158,66 @@ const saveBtn = document.getElementById('save-note');
 const cancelBtn = document.getElementById('cancel-note');
 const sortBtn = document.getElementById('sort-btn');
 
-// These functions must be global for HTML onclick
-window.login = function() {
-    if (!initFirebase()) {
-        alert("Firebaseの準備が整っていません。数秒待ってからやり直してください。");
-        return;
-    }
+function login() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth().signInWithPopup(provider).catch(err => {
+    auth.signInWithPopup(provider).catch(err => {
         console.error("Login failed:", err);
-        alert(`ログインに失敗しました: ${err.message}`);
+        if (err.code === 'auth/unauthorized-domain') {
+            alert("ログインに失敗しました：このドメイン（URL）がFirebaseで許可されていません。Firebaseコンソールの Authentication > Settings > Authorized domains に現在のURLのドメインを追加してください。");
+        } else {
+            alert(`ログインに失敗しました: ${err.message}`);
+        }
     });
-};
+}
 
-window.logout = function() {
+function logout() {
     if (confirm("ログアウトしますか？")) {
-        auth().signOut();
-    }
-};
-
-// Initialize
-function init() {
-    renderTabs();
-    renderNotes();
-    setupEventListeners();
-    if (initFirebase()) {
-        handleAuth();
-    } else {
-        // Retry handleAuth once SDK is ready
-        const retry = setInterval(() => {
-            if (initFirebase()) {
-                handleAuth();
-                clearInterval(retry);
-            }
-        }, 1000);
+        auth.signOut();
     }
 }
+
+// Initialize
+// Firebase Configuration (Move to end of globals)
+const firebaseConfig = {
+    apiKey: "AIzaSyBUEjOw7p8Uf7KlangC2-VlDSQaN5pgUq4",
+    authDomain: "sticky-note-f123d.firebaseapp.com",
+    databaseURL: "https://sticky-note-f123d-default-rtdb.firebaseio.com",
+    projectId: "sticky-note-f123d",
+    storageBucket: "sticky-note-f123d.firebasestorage.app",
+    messagingSenderId: "21493131669",
+    appId: "1:21493131669:web:653215b69ad82a8bc0ee9c"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+// Initial Run
+function runInitialSetup() {
+    // Migration & Initialization
+    if (tabs.length === 0) {
+        const oldNotes = JSON.parse(localStorage.getItem('sticky_notes')) || [];
+        const defaultTab = {
+            id: Date.now().toString(),
+            name: 'NOTE',
+            notes: oldNotes
+        };
+        tabs = [defaultTab];
+        activeTabId = defaultTab.id;
+        localStorage.removeItem('sticky_notes');
+        debouncedSave();
+    }
+
+    if (!activeTabId && tabs.length > 0) {
+        activeTabId = tabs[0].id;
+        debouncedSave();
+    }
+
+    init();
+}
+
+runInitialSetup();
 
 // Render Notes
 function renderNotes() {
@@ -1042,4 +1041,28 @@ function closeModal() {
     document.getElementById('note-date-full').value = '';
 }
 
-init();
+// Initial Run
+function runInitialSetup() {
+    // Migration & Initialization
+    if (tabs.length === 0) {
+        const oldNotes = JSON.parse(localStorage.getItem('sticky_notes')) || [];
+        const defaultTab = {
+            id: Date.now().toString(),
+            name: 'NOTE',
+            notes: oldNotes
+        };
+        tabs = [defaultTab];
+        activeTabId = defaultTab.id;
+        localStorage.removeItem('sticky_notes');
+        debouncedSave();
+    }
+
+    if (!activeTabId && tabs.length > 0) {
+        activeTabId = tabs[0].id;
+        debouncedSave();
+    }
+
+    init();
+}
+
+runInitialSetup();
