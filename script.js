@@ -7,8 +7,11 @@ window.login = function() {
     }
     const provider = new firebase.auth.GoogleAuthProvider();
     if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-        log("Starting Redirect Login...");
-        auth.signInWithRedirect(provider);
+        log("Redirecting to Google for login...");
+        // Explicitly set persistence before redirect
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
+            auth.signInWithRedirect(provider);
+        });
     } else {
         auth.signInWithPopup(provider).catch(err => {
             if (typeof log === 'function') log("Login Error: " + err.message);
@@ -19,7 +22,10 @@ window.login = function() {
 
 window.logout = function() {
     if (typeof auth !== 'undefined' && auth && confirm("ログアウトしますか？")) {
-        auth.signOut().then(() => location.reload());
+        auth.signOut().then(() => {
+            localStorage.removeItem('sticky_last_sync');
+            location.reload();
+        });
     }
 };
 
@@ -112,24 +118,28 @@ function debouncedSave() {
 function handleAuth() {
     if (!auth) return;
     
-    // Explicitly handle redirect result for mobile
-    auth.getRedirectResult().then((result) => {
-        if (result.user) {
-            log("Logged in via redirect: " + result.user.displayName);
-            updateUserUI(result.user);
-        }
-    }).catch((error) => {
-        if (error.code !== 'auth/no-recent-attempt') {
-            log("Redirect error: " + error.message);
-        }
-    });
+    // Set persistence to LOCAL explicitly
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => log("Persistence error: " + e.message));
 
+    // Register listener BEFORE handling redirect result
     auth.onAuthStateChanged((user) => {
-        log("Auth State Changed: " + (user ? user.displayName : "Logged out"));
+        log("Auth State: " + (user ? user.displayName : "Logged out"));
         currentUser = user;
         updateUserUI(user);
         if (user) startSyncing();
         else { stopSyncing(); renderTabs(); renderNotes(); }
+    });
+
+    // Handle redirect result for mobile
+    auth.getRedirectResult().then((result) => {
+        if (result.user) {
+            log("Redirect Success: " + result.user.displayName);
+            updateUserUI(result.user);
+        }
+    }).catch((error) => {
+        if (error.code !== 'auth/no-recent-attempt') {
+            log("Redirect Result Error: " + error.message);
+        }
     });
 }
 

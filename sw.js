@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sticky-note-v8';
+const CACHE_NAME = 'sticky-note-v9';
 const ASSETS_TO_CACHE = [
   'index.html',
   'style.css',
@@ -40,7 +40,12 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   
-  // Origins that should be handled by the Service Worker
+  // CRITICAL: Skip Firebase Auth internal paths
+  // These must be handled by the browser/Firebase SDK directly
+  if (url.pathname.startsWith('/__/')) {
+    return;
+  }
+
   const isLocal = url.origin === self.location.origin;
   const isFirebase = url.origin === 'https://www.gstatic.com';
   const isLucide = url.origin === 'https://unpkg.com';
