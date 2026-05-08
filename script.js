@@ -49,15 +49,26 @@ const firebaseConfig = {
     appId: "1:21493131669:web:653215b69ad82a8bc0ee9c"
 };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const auth = firebase.auth();
-
 // Sync Logic
 let currentUser = null;
 let isRemoteUpdate = false;
 let firebaseListener = null;
+
+// Initialize Firebase safely
+function initFirebase() {
+    if (typeof firebase === 'undefined') {
+        console.error("Firebase SDK not loaded. Retrying in 1s...");
+        setTimeout(initFirebase, 1000);
+        return false;
+    }
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    return true;
+}
+
+const db = () => firebase.database();
+const auth = () => firebase.auth();
 
 function getSyncPath() {
     return currentUser ? `users/${currentUser.uid}` : null;
@@ -66,19 +77,17 @@ function getSyncPath() {
 function saveToFirebase() {
     if (isRemoteUpdate || !currentUser) return;
     
-    // Show sync start feedback
     const syncIcon = document.querySelector('#auth-container i');
     if (syncIcon) syncIcon.classList.add('spinning');
 
-    db.ref(getSyncPath()).set({
+    db().ref(getSyncPath()).set({
         tabs: tabs,
         activeTabId: activeTabId,
         lastUpdated: Date.now()
     }).then(() => {
-        // Success feedback
         if (syncIcon) setTimeout(() => syncIcon.classList.remove('spinning'), 500);
     }).catch(err => {
-        console.error("Firebase save error (Check Rules!):", err);
+        console.error("Firebase save error:", err);
         if (syncIcon) syncIcon.classList.remove('spinning');
     });
 }
@@ -97,13 +106,13 @@ function debouncedSave() {
 
 // Auth Handlers
 function handleAuth() {
-    auth.onAuthStateChanged((user) => {
+    if (typeof firebase === 'undefined') return;
+    auth().onAuthStateChanged((user) => {
         currentUser = user;
         const loginBtn = document.getElementById('login-btn');
         const userProfile = document.getElementById('user-profile');
         
         if (user) {
-            // Logged In
             loginBtn.style.display = 'none';
             userProfile.style.display = 'flex';
             const userPhoto = document.getElementById('user-photo');
@@ -116,16 +125,11 @@ function handleAuth() {
                 }
             };
             document.getElementById('user-name').innerText = user.displayName;
-            
-            // Start Syncing
             startSyncing();
         } else {
-            // Logged Out
             loginBtn.style.display = 'flex';
             userProfile.style.display = 'none';
             stopSyncing();
-            
-            // On logout, keep local data but stop server sync
             renderTabs();
             renderNotes();
         }
@@ -134,8 +138,10 @@ function handleAuth() {
 
 function startSyncing() {
     if (firebaseListener) firebaseListener.off();
-    
-    firebaseListener = db.ref(getSyncPath());
+    const path = getSyncPath();
+    if (!path) return;
+
+    firebaseListener = db().ref(path);
     firebaseListener.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.tabs) {
@@ -177,30 +183,41 @@ const saveBtn = document.getElementById('save-note');
 const cancelBtn = document.getElementById('cancel-note');
 const sortBtn = document.getElementById('sort-btn');
 
-function login() {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(err => {
-        console.error("Login failed:", err);
-        if (err.code === 'auth/unauthorized-domain') {
-            alert("ログインに失敗しました：このドメイン（URL）がFirebaseで許可されていません。Firebaseコンソールの Authentication > Settings > Authorized domains に現在のURLのドメインを追加してください。");
-        } else {
-            alert(`ログインに失敗しました: ${err.message}`);
-        }
-    });
-}
-
-function logout() {
-    if (confirm("ログアウトしますか？")) {
-        auth.signOut();
+// These functions must be global for HTML onclick
+window.login = function() {
+    if (!initFirebase()) {
+        alert("Firebaseの準備が整っていません。数秒待ってからやり直してください。");
+        return;
     }
-}
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth().signInWithPopup(provider).catch(err => {
+        console.error("Login failed:", err);
+        alert(`ログインに失敗しました: ${err.message}`);
+    });
+};
+
+window.logout = function() {
+    if (confirm("ログアウトしますか？")) {
+        auth().signOut();
+    }
+};
 
 // Initialize
 function init() {
     renderTabs();
     renderNotes();
     setupEventListeners();
-    handleAuth();
+    if (initFirebase()) {
+        handleAuth();
+    } else {
+        // Retry handleAuth once SDK is ready
+        const retry = setInterval(() => {
+            if (initFirebase()) {
+                handleAuth();
+                clearInterval(retry);
+            }
+        }, 1000);
+    }
 }
 
 // Render Notes
