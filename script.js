@@ -108,7 +108,13 @@ function handleAuth() {
             userProfile.style.display = 'flex';
             const userPhoto = document.getElementById('user-photo');
             userPhoto.src = user.photoURL;
-            userPhoto.onclick = logout; // Click photo to logout
+            userPhoto.onclick = () => {
+                if (confirm("同期を再試行しますか？（ログアウトする場合は『キャンセル』の後にアイコンを長押ししてください）")) {
+                    startSyncing();
+                } else {
+                    logout();
+                }
+            };
             document.getElementById('user-name').innerText = user.displayName;
             
             // Start Syncing
@@ -136,26 +142,25 @@ function startSyncing() {
             const remoteTime = data.lastUpdated || 0;
             const localTime = parseInt(localStorage.getItem('sticky_last_sync')) || 0;
 
-            // ONLY update if remote is genuinely newer than what we have
-            if (remoteTime > localTime) {
-                console.log("Newer data found on server. Syncing...");
-                
-                // CRITICAL: Stop any pending local saves to prevent echo loops
+            // Sync from Server if:
+            // 1. Remote is newer than local
+            // 2. Local is just the initial default tab (fresh device)
+            const isInitialState = tabs.length <= 1 && (tabs[0]?.notes?.length === 0 || !tabs[0]?.notes);
+
+            if (remoteTime > localTime || isInitialState) {
+                console.log("Syncing from server...");
                 clearTimeout(saveTimeout);
                 isRemoteUpdate = true;
                 
                 tabs = data.tabs;
                 activeTabId = data.activeTabId;
                 localStorage.setItem('sticky_last_sync', remoteTime);
-                saveToLocalStorage(); // Keep local storage in sync with remote
+                saveToLocalStorage();
                 
                 renderTabs();
                 renderNotes();
                 
-                // Keep the lock for a bit to let DOM settles
-                setTimeout(() => {
-                    isRemoteUpdate = false;
-                }, 500);
+                setTimeout(() => { isRemoteUpdate = false; }, 1000);
             }
         } else if (tabs.length > 0 && !data) {
             // New account or empty server: initial push
