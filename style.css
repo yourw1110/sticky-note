@@ -117,28 +117,44 @@ body {
     background: #00a884;
 }
 
-.user-profile {
+#auth-container {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 0;
-    padding: 0;
-    background: transparent;
-    border: none;
 }
 
-.user-profile img {
-    width: 32px;
-    height: 32px;
+.sync-indicator {
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    object-fit: cover;
-    cursor: pointer;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    transition: all 0.2s;
+    background-color: transparent;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    transition: all 0.3s ease;
+    pointer-events: none;
 }
 
-.user-profile img:hover {
-    transform: scale(1.1);
-    border-color: var(--primary-color);
+.sync-indicator.syncing {
+    background-color: #f1c40f;
+    box-shadow: 0 0 8px #f1c40f;
+    animation: pulse 1.5s infinite;
+}
+
+.sync-indicator.success {
+    background-color: #2ecc71;
+    box-shadow: 0 0 8px #2ecc71;
+}
+
+.sync-indicator.error {
+    background-color: #e74c3c;
+    box-shadow: 0 0 8px #e74c3c;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 
@@ -223,12 +239,12 @@ i:empty ~ .fallback-icon {
     to { transform: rotate(360deg); }
 }
 
-#auth-container i {
+#sync-btn i {
     transition: color 0.3s ease;
 }
 
-.spinning {
-    animation: spin 1s linear infinite;
+#sync-btn:hover i {
+    color: var(--primary-color);
 }
 
 

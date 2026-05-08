@@ -7,7 +7,6 @@
     <!-- Firebase SDK (Compat Version) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
@@ -38,16 +37,10 @@
                 <span id="delete-count">削除</span>
             </button>
             <div id="auth-container">
-                <button id="login-btn" class="icon-btn" title="Googleでログイン" onclick="login()">
-                    <i data-lucide="user-circle"></i>
+                <button id="sync-btn" class="icon-btn" title="同期設定">
+                    <i data-lucide="key"></i>
                 </button>
-                <div id="user-profile" class="user-profile" style="display: none;">
-                    <img id="user-photo" src="" alt="User" title="同期/ログアウト">
-                    <span id="user-name" style="display: none;"></span>
-                    <button id="logout-btn" class="icon-btn-small" style="display: none;" onclick="logout()">
-                        <i data-lucide="log-out"></i>
-                    </button>
-                </div>
+                <div id="sync-indicator" class="sync-indicator"></div>
             </div>
         </div>
     </header>
@@ -109,6 +102,28 @@
             <div class="modal-actions">
                 <button id="cancel-note" class="btn secondary">CANCEL</button>
                 <button id="save-note" class="btn primary">SAVE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Sync Key -->
+    <div id="sync-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>同期設定</h2>
+            <p style="font-size: 0.85rem; color: #666; margin-bottom: 16px;">
+                合言葉（同期キー）を入力すると、他の端末と付箋を同期できます。<br>
+                推測されにくい独自の単語を推奨します。
+            </p>
+            <div class="input-group">
+                <label for="sync-key-input">同期キー</label>
+                <input type="text" id="sync-key-input" placeholder="例: secret-note-777">
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-sync" class="btn secondary">CANCEL</button>
+                <button id="save-sync" class="btn primary">SAVE</button>
+            </div>
+            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                <button id="clear-sync" class="btn danger" style="width: 100%; font-size: 0.8rem; background: #ffebee; color: #e74c3c; border: 1px solid #ffcdd2; border-radius: 8px; padding: 10px;">同期を解除する</button>
             </div>
         </div>
     </div>

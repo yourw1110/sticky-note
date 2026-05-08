@@ -1,35 +1,6 @@
-// 1. Export critical functions to window IMMEDIATELY
-window.login = function() {
-    if (typeof log === 'function') log("Login clicked");
-    if (typeof auth === 'undefined' || !auth) {
-        alert("認証システムが読み込まれていません。通信状況を確認してください。");
-        return;
-    }
-    const provider = new firebase.auth.GoogleAuthProvider();
-    if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-        log("Redirecting to Google for login...");
-        // Explicitly set persistence before redirect
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => {
-            auth.signInWithRedirect(provider);
-        });
-    } else {
-        auth.signInWithPopup(provider).catch(err => {
-            if (typeof log === 'function') log("Login Error: " + err.message);
-            alert(`ログインに失敗しました: ${err.message}`);
-        });
-    }
-};
+// 1. Sync Key Management
+let syncKey = localStorage.getItem('sticky_sync_key') || '';
 
-window.logout = function() {
-    if (typeof auth !== 'undefined' && auth && confirm("ログアウトしますか？")) {
-        auth.signOut().then(() => {
-            localStorage.removeItem('sticky_last_sync');
-            location.reload();
-        });
-    }
-};
-
-// 2. Visual Logger
 function log(msg) {
     console.log(msg);
     const debugEl = document.getElementById('debug-log');
@@ -39,7 +10,7 @@ function log(msg) {
     }
 }
 
-// 3. State Management
+// 2. State Management
 let tabs = [];
 try { tabs = JSON.parse(localStorage.getItem('sticky_tabs')) || []; } catch(e) { tabs = []; }
 let activeTabId = localStorage.getItem('sticky_active_tab');
@@ -51,13 +22,12 @@ let sortOrder = 'desc';
 let isEditing = false;
 
 // Sync Logic
-let currentUser = null;
 let isRemoteUpdate = false;
 let firebaseListener = null;
 let saveTimeout;
 
-// Firebase & DB references
-let db, auth;
+// Firebase references
+let db;
 
 // Robust Icon Creation
 function safeCreateIcons(parentElement) {
@@ -86,19 +56,27 @@ let resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight;
 
 function getActiveTab() { return tabs.find(t => t.id == activeTabId); }
 function getActiveNotes() { const tab = getActiveTab(); if (!tab) return []; if (!tab.notes) tab.notes = []; return tab.notes; }
-function getSyncPath() { return currentUser ? `users/${currentUser.uid}` : null; }
+function getSyncPath() { return syncKey ? `keys/${syncKey}` : null; }
 
 function saveToFirebase() {
-    if (isRemoteUpdate || !currentUser || !db) return;
-    const syncIcon = document.querySelector('#auth-container i');
-    if (syncIcon) syncIcon.classList.add('spinning');
+    if (isRemoteUpdate || !syncKey || !db) return;
+    const syncIndicator = document.getElementById('sync-indicator');
+    if (syncIndicator) syncIndicator.classList.add('syncing');
+    
     db.ref(getSyncPath()).set({
         tabs: tabs, activeTabId: activeTabId, lastUpdated: Date.now()
     }).then(() => {
-        if (syncIcon) { syncIcon.classList.remove('spinning'); syncIcon.style.color = '#00b894'; setTimeout(() => syncIcon.style.color = '', 2000); }
+        if (syncIndicator) {
+            syncIndicator.classList.remove('syncing');
+            syncIndicator.classList.add('success');
+            setTimeout(() => syncIndicator.classList.remove('success'), 2000);
+        }
     }).catch(err => {
         log("Firebase save error: " + err.message);
-        if (syncIcon) { syncIcon.classList.remove('spinning'); syncIcon.style.color = '#ff7675'; }
+        if (syncIndicator) {
+            syncIndicator.classList.remove('syncing');
+            syncIndicator.classList.add('error');
+        }
     });
 }
 
@@ -112,63 +90,12 @@ function debouncedSave() {
     saveToLocalStorage();
     if (isRemoteUpdate) return;
     clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => { if (currentUser) saveToFirebase(); }, 1500);
-}
-
-function handleAuth() {
-    if (!auth) return;
-    
-    // Set persistence to LOCAL explicitly
-    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => log("Persistence error: " + e.message));
-
-    // Register listener BEFORE handling redirect result
-    auth.onAuthStateChanged((user) => {
-        log("Auth State: " + (user ? user.displayName : "Logged out"));
-        currentUser = user;
-        updateUserUI(user);
-        if (user) startSyncing();
-        else { stopSyncing(); renderTabs(); renderNotes(); }
-    });
-
-    // Handle redirect result for mobile
-    auth.getRedirectResult().then((result) => {
-        if (result.user) {
-            log("Redirect Success: " + result.user.displayName);
-            updateUserUI(result.user);
-        }
-    }).catch((error) => {
-        if (error.code !== 'auth/no-recent-attempt') {
-            log("Redirect Result Error: " + error.message);
-        }
-    });
-}
-
-function updateUserUI(user) {
-    const loginBtn = document.getElementById('login-btn');
-    const userProfile = document.getElementById('user-profile');
-    const userPhoto = document.getElementById('user-photo');
-    const userName = document.getElementById('user-name');
-
-    if (user) {
-        if (loginBtn) loginBtn.style.display = 'none';
-        if (userProfile) userProfile.style.display = 'flex';
-        if (userPhoto) {
-            userPhoto.src = user.photoURL || '';
-            userPhoto.title = user.displayName;
-            userPhoto.onclick = () => {
-                if (confirm("同期を再試行しますか？")) startSyncing();
-                else if (confirm("ログアウトしますか？")) logout();
-            };
-        }
-        if (userName) userName.innerText = user.displayName;
-    } else {
-        if (loginBtn) loginBtn.style.display = 'flex';
-        if (userProfile) userProfile.style.display = 'none';
-    }
+    saveTimeout = setTimeout(() => { if (syncKey) saveToFirebase(); }, 1500);
 }
 
 function startSyncing() {
-    if (!currentUser || !db) return;
+    if (!syncKey || !db) return;
+    log("Starting Sync with key: " + syncKey);
     if (firebaseListener) firebaseListener.off();
     firebaseListener = db.ref(getSyncPath());
     firebaseListener.on('value', (snapshot) => {
@@ -462,9 +389,45 @@ function setupEventListeners() {
     const delBtn = document.getElementById('delete-selected-btn'); if (delBtn) delBtn.addEventListener('click', deleteSelectedNotes);
     const dInp = document.getElementById('note-date-full');
     if (dInp) { dInp.addEventListener('input', (e) => { let val = e.target.value.replace(/[０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, ''); if (e.target.value !== val) e.target.value = val; }); }
+    
+    // Sync Modal Listeners
+    const syncBtn = document.getElementById('sync-btn');
+    const syncModal = document.getElementById('sync-modal');
+    if (syncBtn) syncBtn.addEventListener('click', () => {
+        const input = document.getElementById('sync-key-input');
+        if (input) input.value = syncKey;
+        syncModal.classList.add('show');
+    });
+    const cancelSync = document.getElementById('cancel-sync');
+    if (cancelSync) cancelSync.addEventListener('click', () => syncModal.classList.remove('show'));
+    const saveSync = document.getElementById('save-sync');
+    if (saveSync) saveSync.addEventListener('click', () => {
+        const key = document.getElementById('sync-key-input').value.trim();
+        if (key) {
+            syncKey = key;
+            localStorage.setItem('sticky_sync_key', syncKey);
+            syncModal.classList.remove('show');
+            log("Sync key updated: " + syncKey);
+            startSyncing();
+        } else {
+            alert("キーを入力してください");
+        }
+    });
+    const clearSync = document.getElementById('clear-sync');
+    if (clearSync) clearSync.addEventListener('click', () => {
+        if (confirm("同期を解除し、キーを削除しますか？\n（付箋データ自体はクラウドに残ります）")) {
+            syncKey = '';
+            localStorage.removeItem('sticky_sync_key');
+            stopSyncing();
+            syncModal.classList.remove('show');
+            location.reload();
+        }
+    });
+
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.note-actions')) { document.querySelectorAll('.note-menu.show').forEach(m => m.classList.remove('show')); }
         const m = document.getElementById('note-modal'); if (e.target === m) closeModal();
+        if (e.target === syncModal) syncModal.classList.remove('show');
         if (fab && menu && !e.target.closest('.fab-container')) { fab.classList.remove('active'); menu.classList.remove('show'); }
     });
 }
@@ -480,9 +443,9 @@ function runInitialSetup() {
     try {
         setupEventListeners();
         if (typeof firebase !== 'undefined') {
-            firebase.initializeApp(firebaseConfig); db = firebase.database(); auth = firebase.auth();
+            firebase.initializeApp(firebaseConfig); db = firebase.database();
             log("Firebase Initialized");
-            handleAuth(); // Initialize auth listener
+            if (syncKey) startSyncing();
         } else {
             log("Firebase missing - retrying...");
             setTimeout(runInitialSetup, 2000); return;
