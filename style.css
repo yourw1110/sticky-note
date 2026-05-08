@@ -544,20 +544,16 @@ i:empty ~ .fallback-icon {
     margin-top: 12px;
     display: flex;
     justify-content: flex-end;
-    opacity: 0.3;
+    opacity: 1; /* Fully visible for mobile */
     transition: opacity 0.2s;
     position: relative;
     /* For dropdown positioning */
 }
 
-.sticky-note:hover .note-actions {
-    opacity: 1;
-}
-
 .action-btn {
     background: transparent;
     border: none;
-    color: rgba(0, 0, 0, 0.3);
+    color: rgba(0, 0, 0, 0.6); /* Darker for better visibility */
     cursor: pointer;
     transition: color 0.2s;
     padding: 4px;
