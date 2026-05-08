@@ -20,6 +20,7 @@ let sortOrder = 'desc';
 // Sync Logic
 let currentUser = null;
 let isRemoteUpdate = false;
+let isEditing = false; // Flag to prevent re-render during editing
 let firebaseListener = null;
 let saveTimeout;
 
@@ -100,10 +101,7 @@ function debouncedSave() {
 }
 
 function handleAuth() {
-    if (!auth) {
-        log("Auth object missing - Sync disabled");
-        return;
-    }
+    if (!auth) return;
     auth.onAuthStateChanged((user) => {
         currentUser = user;
         const loginBtn = document.getElementById('login-btn');
@@ -150,6 +148,12 @@ function startSyncing() {
             const serverLastUpdated = data.lastUpdated || 0;
             
             if (serverLastUpdated > localLastSync) {
+                // IMPORTANT: Prevent re-render if user is currently editing something
+                if (isEditing) {
+                    log("Sync: Remote data available, but skipping render while editing.");
+                    return;
+                }
+
                 clearTimeout(saveTimeout);
                 isRemoteUpdate = true;
                 tabs = data.tabs;
@@ -175,9 +179,7 @@ function stopSyncing() {
     }
 }
 
-// Export functions to window for onclick compatibility
 window.login = function() {
-    log("Login clicked");
     if (!auth) {
         alert("認証システムが読み込まれていません。通信状況を確認してください。");
         return;
@@ -200,6 +202,7 @@ window.logout = function() {
 };
 
 function renderNotes() {
+    if (isEditing) return; // Never render while editing
     const board = document.getElementById('board');
     if (!board) return;
     board.innerHTML = '';
@@ -236,7 +239,7 @@ function createNoteElement(note) {
 
     let contentHtml = '';
     if (note.type === 'memo') {
-        contentHtml = `<div class="note-content"><textarea placeholder="メモを入力..." onchange="updateNoteContent(${note.id}, this.value)">${note.content || ''}</textarea></div>`;
+        contentHtml = `<div class="note-content"><textarea placeholder="メモを入力..." onfocus="isEditing=true" onblur="isEditing=false; updateNoteContent(${note.id}, this.value)">${note.content || ''}</textarea></div>`;
     } else {
         const activeTodos = (note.todos || []).filter(t => !t.done);
         const completedTodos = (note.todos || []).filter(t => t.done);
@@ -249,7 +252,8 @@ function createNoteElement(note) {
                     <div class="todo-item">
                         <input type="checkbox" onchange="toggleTodo(${note.id}, ${originalIdx})">
                         <span contenteditable="true" 
-                               onblur="updateTodoText(${note.id}, ${originalIdx}, this.innerText)"
+                               onfocus="isEditing=true"
+                               onblur="isEditing=false; updateTodoText(${note.id}, ${originalIdx}, this.innerText)"
                                onkeydown="handleTodoKeydown(event, ${note.id})">${todo.text}</span>
                         <button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${originalIdx})">
                             <i data-lucide="x" style="width: 14px; height: 14px;"></i>
@@ -265,7 +269,7 @@ function createNoteElement(note) {
                         return `
                         <div class="todo-item checked">
                             <input type="checkbox" checked onchange="toggleTodo(${note.id}, ${originalIdx})">
-                            <span contenteditable="true" onblur="updateTodoText(${note.id}, ${originalIdx}, this.innerText)">${todo.text}</span>
+                            <span contenteditable="true" onfocus="isEditing=true" onblur="isEditing=false; updateTodoText(${note.id}, ${originalIdx}, this.innerText)">${todo.text}</span>
                             <button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${originalIdx})">
                                 <i data-lucide="x" style="width: 14px; height: 14px;"></i>
                             </button>
@@ -344,12 +348,7 @@ function createNoteElement(note) {
 }
 
 function handleStartInteraction(e, el, note) {
-    if (isSelectionMode) {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleNoteSelection(note.id);
-        return;
-    }
+    if (isSelectionMode) { e.preventDefault(); e.stopPropagation(); toggleNoteSelection(note.id); return; }
     const target = e.target;
     if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.getAttribute('contenteditable') === 'true' || target.tagName === 'BUTTON' || target.closest('button')) return;
     draggedNote = { el, note };
@@ -393,14 +392,8 @@ function doGlobalInteraction(e) {
         const clientY = e.clientY || (e.touches && e.touches[0].clientY);
         const width = resizeStartWidth + (clientX - resizeStartX);
         const height = resizeStartHeight + (clientY - resizeStartY);
-        if (width > 150) {
-            resizedNote.el.style.width = width + 'px';
-            resizedNote.note.width = width;
-        }
-        if (height > 150) {
-            resizedNote.el.style.height = height + 'px';
-            resizedNote.note.height = height;
-        }
+        if (width > 150) { resizedNote.el.style.width = width + 'px'; resizedNote.note.width = width; }
+        if (height > 150) { resizedNote.el.style.height = height + 'px'; resizedNote.note.height = height; }
         if (e.touches) e.preventDefault();
     }
 }
@@ -521,9 +514,9 @@ function handleTodoKeydown(e, noteId) {
 }
 
 function makeTitleEditable(id, el) {
-    el.contentEditable = true; el.focus();
+    isEditing = true; el.contentEditable = true; el.focus();
     el.onblur = () => {
-        el.contentEditable = false;
+        isEditing = false; el.contentEditable = false;
         const note = getActiveNotes().find(n => n.id === id);
         if (note) { note.title = el.innerText; debouncedSave(); }
     };
@@ -531,14 +524,14 @@ function makeTitleEditable(id, el) {
 }
 
 function makeDateEditable(id, el) {
-    const note = getActiveNotes().find(n => n.id === id);
-    if (!note) return;
+    isEditing = true; const note = getActiveNotes().find(n => n.id === id);
+    if (!note) { isEditing = false; return; }
     el.innerText = (note.date || '').replace(/-/g, '/') || 'yyyy/mm/dd';
     el.contentEditable = true; el.focus();
     const range = document.createRange(); range.selectNodeContents(el);
     const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
     el.onblur = () => {
-        el.contentEditable = false;
+        isEditing = false; el.contentEditable = false;
         let val = el.innerText.trim().replace(/[^0-9/-]/g, '');
         if (/^\d{8}$/.test(val)) val = `${val.substring(0,4)}/${val.substring(4,6)}/${val.substring(6,8)}`;
         const p = val.split(/[-/.]/);
@@ -576,6 +569,7 @@ function sortNotesByDate() {
 }
 
 function renderTabs() {
+    if (isEditing) return; // Prevent re-render while editing
     const list = document.getElementById('tabs-list'); if (!list) return;
     list.innerHTML = '';
     tabs.forEach(tab => {
@@ -583,6 +577,10 @@ function renderTabs() {
         el.className = `tab-item ${tab.id == activeTabId ? 'active' : ''}`;
         el.addEventListener('click', () => switchTab(tab.id));
         el.addEventListener('dblclick', (e) => { e.stopPropagation(); makeTabNameEditable(el, tab.id); });
+        
+        // Prevent default long-press menu on tabs
+        el.addEventListener('contextmenu', (e) => e.preventDefault());
+
         let longPressTimer;
         el.addEventListener('touchstart', (e) => {
             longPressTimer = setTimeout(() => { makeTabNameEditable(el, tab.id); }, 600);
@@ -622,33 +620,21 @@ function deleteTab(id) {
 
 function makeTabNameEditable(el, id) {
     const tab = tabs.find(t => t.id == id); if (!tab) return;
+    isEditing = true;
     const span = el.querySelector('.tab-name');
     const name = tab.name;
     const input = document.createElement('input');
     input.type = 'text'; input.className = 'tab-edit-input'; input.value = name;
     span.innerHTML = ''; span.appendChild(input); input.focus(); input.select();
-    input.onblur = () => { tab.name = input.value.trim() || name; debouncedSave(); renderTabs(); };
+    input.onblur = () => { isEditing = false; tab.name = input.value.trim() || name; debouncedSave(); renderTabs(); };
     input.onkeydown = (e) => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = name; input.blur(); } };
 }
 
 function setupEventListeners() {
     const fab = document.getElementById('fab');
     const fabMenu = document.getElementById('fab-menu');
-    
-    // Use both click and touchstart for better mobile responsiveness
-    const handleFabClick = (e) => {
-        log("FAB Interaction");
-        e.preventDefault();
-        e.stopPropagation();
-        fab.classList.toggle('active');
-        fabMenu.classList.toggle('show');
-    };
-
-    if (fab && fabMenu) {
-        fab.addEventListener('click', handleFabClick);
-        // Do not use touchstart here as it might interfere with drag if we ever make FAB draggable
-    }
-
+    const handleFabClick = (e) => { e.preventDefault(); e.stopPropagation(); fab.classList.toggle('active'); fabMenu.classList.toggle('show'); };
+    if (fab && fabMenu) { fab.addEventListener('click', handleFabClick); }
     document.querySelectorAll('.menu-item').forEach(item => {
         item.addEventListener('click', () => {
             currentType = item.dataset.type;
@@ -659,15 +645,12 @@ function setupEventListeners() {
             if (fabMenu) fabMenu.classList.remove('show');
         });
     });
-
     document.querySelectorAll('.color-option').forEach(opt => {
         opt.addEventListener('click', () => {
             document.querySelectorAll('.color-option').forEach(o => o.classList.remove('active'));
-            opt.classList.add('active');
-            selectedColor = opt.dataset.color;
+            opt.classList.add('active'); selectedColor = opt.dataset.color;
         });
     });
-
     const saveBtn = document.getElementById('save-note');
     if (saveBtn) saveBtn.addEventListener('click', addNote);
     const cancelBtn = document.getElementById('cancel-note');
@@ -680,7 +663,6 @@ function setupEventListeners() {
     if (multiSelectBtn) multiSelectBtn.addEventListener('click', toggleSelectionMode);
     const deleteSelectedBtn = document.getElementById('delete-selected-btn');
     if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelectedNotes);
-
     const dateInput = document.getElementById('note-date-full');
     if (dateInput) {
         const enforceNumeric = (e) => {
@@ -689,17 +671,11 @@ function setupEventListeners() {
         };
         dateInput.addEventListener('input', enforceNumeric);
     }
-
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.note-actions')) {
-            document.querySelectorAll('.note-menu.show').forEach(m => m.classList.remove('show'));
-        }
+        if (!e.target.closest('.note-actions')) { document.querySelectorAll('.note-menu.show').forEach(m => m.classList.remove('show')); }
         const modal = document.getElementById('note-modal');
         if (e.target === modal) closeModal();
-        if (fab && fabMenu && !e.target.closest('.fab-container')) {
-            fab.classList.remove('active');
-            fabMenu.classList.remove('show');
-        }
+        if (fab && fabMenu && !e.target.closest('.fab-container')) { fab.classList.remove('active'); fabMenu.classList.remove('show'); }
     });
 }
 
@@ -713,49 +689,26 @@ function closeModal() {
 }
 
 function runInitialSetup() {
-    log("Starting Initial Setup");
     try {
-        // Move event listeners to the top so UI is responsive ASAP
         setupEventListeners();
-
         if (typeof firebase !== 'undefined') {
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
             auth = firebase.auth();
-            log("Firebase Initialized");
-        } else {
-            log("Firebase SDK missing!");
+            firebase.database().enablePersistence().catch(err => console.warn("Persistence failed", err));
         }
-        
         if (tabs.length === 0) {
             const oldNotes = JSON.parse(localStorage.getItem('sticky_notes')) || [];
             const defaultTab = { id: Date.now().toString(), name: 'NOTE', notes: oldNotes };
-            tabs = [defaultTab];
-            activeTabId = defaultTab.id;
-            localStorage.removeItem('sticky_notes');
-            saveToLocalStorage();
+            tabs = [defaultTab]; activeTabId = defaultTab.id;
+            localStorage.removeItem('sticky_notes'); saveToLocalStorage();
         }
-        if (!activeTabId && tabs.length > 0) {
-            activeTabId = tabs[0].id;
-            saveToLocalStorage();
-        }
-
-        renderTabs();
-        renderNotes();
-        handleAuth();
-        safeCreateIcons();
-        
-        log("App Ready");
+        if (!activeTabId && tabs.length > 0) { activeTabId = tabs[0].id; saveToLocalStorage(); }
+        renderTabs(); renderNotes(); handleAuth(); safeCreateIcons();
     } catch (e) {
         log("Setup Error: " + e.message);
-        if (confirm("初期化エラー: " + e.message + "\n再読み込みしますか？")) {
-            location.reload();
-        }
     }
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', runInitialSetup);
-} else {
-    runInitialSetup();
-}
+if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', runInitialSetup); }
+else { runInitialSetup(); }

@@ -275,8 +275,11 @@ i:empty ~ .fallback-icon {
     white-space: nowrap;
     position: relative;
     top: -1px;
-    -webkit-user-select: none; /* Add this for long-press edit support */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
     user-select: none;
+    -webkit-touch-callout: none; /* Disables long-press menu on mobile */
 }
 
 .tab-item:hover {

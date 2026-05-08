@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sticky-note-v5';
+const CACHE_NAME = 'sticky-note-v6';
 const ASSETS_TO_CACHE = [
   'index.html',
   'style.css',
@@ -17,7 +17,7 @@ self.addEventListener('install', (event) => {
             .then((response) => {
               if (response.ok) return cache.put(url, response);
             })
-            .catch((err) => console.warn('Cache failed:', url));
+            .catch((err) => console.warn('Cache failed during install:', url));
         })
       );
     })
@@ -41,30 +41,43 @@ self.addEventListener('fetch', (event) => {
   const isLocal = url.origin === self.location.origin;
 
   if (isLocal) {
-    // Strategy: Network First, Fallback to Cache
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
+    // Navigation requests (Page reload / Open PWA)
+    if (event.request.mode === 'navigate') {
+      event.respondWith(
+        fetch(event.request)
+          .then((response) => {
+            // Update cache while we are at it
             const resClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
+            return response;
+          })
+          .catch(() => {
+            // OFFLINE fallback: always try to return index.html
+            return caches.match('index.html').then((cachedIndex) => {
+                if (cachedIndex) return cachedIndex;
+                // If index.html is not in cache, try to match root
+                return caches.match('/');
+            });
+          })
+      );
+      return;
+    }
+
+    // Standard local assets
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        const fetchPromise = fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const resClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
           }
-          return response;
-        })
-        .catch(() => {
-          // If offline, try to match EXACT request, or fallback to index.html for navigation
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) return cachedResponse;
-            
-            // Critical: If it's a navigation request and we are offline, return index.html
-            if (event.request.mode === 'navigate') {
-              return caches.match('index.html');
-            }
-          });
-        })
+          return networkResponse;
+        });
+        return cachedResponse || fetchPromise;
+      })
     );
   } else {
-    // External assets: Cache First (Stale-While-Revalidate)
+    // External assets (Google Fonts, Lucide)
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
         const fetchPromise = fetch(event.request).then((networkResponse) => {
