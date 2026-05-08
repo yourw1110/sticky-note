@@ -28,12 +28,14 @@ body {
     font-family: 'Outfit', 'Noto Sans JP', sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
-    overflow: hidden;
-    height: 100vh;
-    height: 100dvh;
+    min-height: 100vh;
+    min-height: 100dvh;
     width: 100vw;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
 }
 
 /* Header */
@@ -47,6 +49,8 @@ body {
     padding: 0 24px;
     z-index: 1000;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
 }
 
 .header-left {
@@ -219,10 +223,14 @@ i:empty ~ .fallback-icon {
     to { transform: rotate(360deg); }
 }
 
+#auth-container i {
+    transition: color 0.3s ease;
+}
+
 .spinning {
     animation: spin 1s linear infinite;
-    color: var(--primary-color) !important;
 }
+
 
 /* Board */
 .tabs-container {
@@ -235,6 +243,8 @@ i:empty ~ .fallback-icon {
     gap: 12px;
     border-top: 1px solid rgba(0, 0, 0, 0.1);
     z-index: 999;
+    position: sticky;
+    bottom: 0;
 }
 
 .tabs-list {
@@ -265,6 +275,8 @@ i:empty ~ .fallback-icon {
     white-space: nowrap;
     position: relative;
     top: -1px;
+    -webkit-user-select: none; /* Add this for long-press edit support */
+    user-select: none;
 }
 
 .tab-item:hover {
@@ -318,9 +330,9 @@ i:empty ~ .fallback-icon {
 .board {
     flex-grow: 1;
     width: 100%;
+    min-height: calc(100vh - 64px - 48px);
     padding-top: 40px;
     position: relative;
-    overflow: auto;
     background-image:
         radial-gradient(#ddd 1px, transparent 1px);
     background-size: 40px 40px;
