@@ -374,6 +374,7 @@ i:empty ~ .fallback-icon {
     user-select: none;
     overflow: hidden;
     outline: 0 solid var(--primary-color);
+    z-index: 1; /* Establish stacking context to prevent child penetration */
 }
 
 .sticky-note.selected {
@@ -553,13 +554,20 @@ i:empty ~ .fallback-icon {
 .action-btn {
     background: transparent;
     border: none;
-    color: #636e72 !important; /* Use a solid, dark color for maximum visibility */
+    color: #555 !important; /* Solid dark color */
     cursor: pointer;
     transition: color 0.2s;
-    padding: 4px;
+    padding: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
+    opacity: 1 !important;
+}
+
+.action-btn i {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2.5px; /* Make icons bolder and more visible */
 }
 
 .action-btn:hover {
