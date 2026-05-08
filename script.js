@@ -139,31 +139,23 @@ function startSyncing() {
     firebaseListener.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.tabs) {
-            const remoteTime = data.lastUpdated || 0;
-            const localTime = parseInt(localStorage.getItem('sticky_last_sync')) || 0;
-
-            // Sync from Server if:
-            // 1. Remote is newer than local
-            // 2. Local is just the initial default tab (fresh device)
-            const isInitialState = tabs.length <= 1 && (tabs[0]?.notes?.length === 0 || !tabs[0]?.notes);
-
-            if (remoteTime > localTime || isInitialState) {
-                console.log("Syncing from server...");
-                clearTimeout(saveTimeout);
-                isRemoteUpdate = true;
-                
-                tabs = data.tabs;
-                activeTabId = data.activeTabId;
-                localStorage.setItem('sticky_last_sync', remoteTime);
-                saveToLocalStorage();
-                
-                renderTabs();
-                renderNotes();
-                
-                setTimeout(() => { isRemoteUpdate = false; }, 1000);
-            }
+            // Server data is Always Truth when logged in
+            console.log("Server data received. Overwriting local state for sync.");
+            
+            clearTimeout(saveTimeout);
+            isRemoteUpdate = true;
+            
+            tabs = data.tabs;
+            activeTabId = data.activeTabId;
+            localStorage.setItem('sticky_last_sync', data.lastUpdated || Date.now());
+            saveToLocalStorage();
+            
+            renderTabs();
+            renderNotes();
+            
+            setTimeout(() => { isRemoteUpdate = false; }, 1000);
         } else if (tabs.length > 0 && !data) {
-            // New account or empty server: initial push
+            // First time sync: push local data to server
             saveToFirebase();
         }
     });
@@ -209,10 +201,6 @@ function init() {
     renderNotes();
     setupEventListeners();
     handleAuth();
-    
-    // Auth Buttons
-    document.getElementById('login-btn').onclick = login;
-    document.getElementById('logout-btn').onclick = logout;
 }
 
 // Render Notes

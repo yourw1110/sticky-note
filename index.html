@@ -38,13 +38,13 @@
                 <span id="delete-count">削除</span>
             </button>
             <div id="auth-container">
-                <button id="login-btn" class="icon-btn" title="Googleでログイン">
+                <button id="login-btn" class="icon-btn" title="Googleでログイン" onclick="login()">
                     <i data-lucide="user-circle"></i>
                 </button>
                 <div id="user-profile" class="user-profile" style="display: none;">
-                    <img id="user-photo" src="" alt="User" title="ログアウト">
+                    <img id="user-photo" src="" alt="User" title="同期/ログアウト">
                     <span id="user-name" style="display: none;"></span>
-                    <button id="logout-btn" class="icon-btn-small" style="display: none;">
+                    <button id="logout-btn" class="icon-btn-small" style="display: none;" onclick="logout()">
                         <i data-lucide="log-out"></i>
                     </button>
                 </div>
