@@ -544,16 +544,16 @@ i:empty ~ .fallback-icon {
     margin-top: 12px;
     display: flex;
     justify-content: flex-end;
-    opacity: 1; /* Fully visible for mobile */
+    opacity: 1 !important; /* Force visibility across all tabs */
     transition: opacity 0.2s;
     position: relative;
-    /* For dropdown positioning */
+    z-index: 5;
 }
 
 .action-btn {
     background: transparent;
     border: none;
-    color: rgba(0, 0, 0, 0.6); /* Darker for better visibility */
+    color: #636e72 !important; /* Use a solid, dark color for maximum visibility */
     cursor: pointer;
     transition: color 0.2s;
     padding: 4px;
