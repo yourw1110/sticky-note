@@ -206,7 +206,7 @@ function createNoteElement(note) {
     el.addEventListener('mousedown', (e) => handleStartInteraction(e, el, note)); el.addEventListener('touchstart', (e) => handleStartInteraction(e, el, note), { passive: false });
     const res = el.querySelector('.resizer'); res.addEventListener('mousedown', (e) => handleStartResize(e, el, note)); res.addEventListener('touchstart', (e) => handleStartResize(e, el, note), { passive: false });
     if (note.width) el.style.width = `${note.width}px`; if (note.height) el.style.height = `${note.height}px`;
-    safeCreateIcons(el); return el;
+    return el;
 }
 
 function handleStartInteraction(e, el, note) {

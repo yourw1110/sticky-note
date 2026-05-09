@@ -551,10 +551,10 @@ i:empty ~ .fallback-icon {
     z-index: 5;
 }
 
-.action-btn i, .delete-action-icon i {
+.action-btn i, .action-btn svg, .delete-action-icon i, .delete-action-icon svg {
     width: 20px;
     height: 20px;
-    stroke-width: 2.5px; /* Ensure all icons are bold */
+    stroke-width: 2.5px !important; /* Force weight on both i and generated svg */
     display: block;
 }
 
