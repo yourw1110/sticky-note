@@ -288,7 +288,7 @@ function toggleNoteSelection(id) {
 
 function updateBatchUI() {
     const btn = document.getElementById('delete-selected-btn'); const cnt = document.getElementById('delete-count');
-    if (btn) { btn.style.display = selectedNoteIds.size > 0 ? 'flex' : 'none'; if (cnt) cnt.innerText = `${selectedNoteIds.size}件削除`; }
+    if (btn) { btn.style.display = selectedNoteIds.size > 0 ? 'flex' : 'none'; if (cnt) cnt.innerText = selectedNoteIds.size; }
 }
 
 function deleteSelectedNotes() {
