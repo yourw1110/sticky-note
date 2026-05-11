@@ -84,9 +84,9 @@
                 <input type="text" id="note-title" placeholder="TITLE...">
             </div>
             <div class="input-group">
-                <label>DATE [yyyymmdd]</label>
+                <label>DATE [yyyymmdd, mmdd, m/d]</label>
                 <div class="date-input-group">
-                    <input type="tel" id="note-date-full" class="full-date-input" placeholder="20260505" maxlength="8" inputmode="numeric" pattern="[0-9]*">
+                    <input type="text" id="note-date-full" class="full-date-input" placeholder="20260505 or 0505 or 5/5">
                 </div>
             </div>
             <div class="input-group">
@@ -116,7 +116,7 @@
             </p>
             <div class="input-group">
                 <label for="sync-key-input">同期キー</label>
-                <input type="text" id="sync-key-input" placeholder="例: secret-note-777">
+                <input type="text" id="sync-key-input" placeholder="例: secretnote777">
             </div>
             <div class="modal-actions">
                 <button id="cancel-sync" class="btn secondary">CANCEL</button>

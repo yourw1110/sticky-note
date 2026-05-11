@@ -209,6 +209,7 @@ function createNoteElement(note) {
     return el;
 }
 
+
 function handleStartInteraction(e, el, note) {
     if (isSelectionMode) { e.preventDefault(); e.stopPropagation(); toggleNoteSelection(note.id); return; }
     const t = e.target; if (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.getAttribute('contenteditable') === 'true' || t.tagName === 'BUTTON' || t.closest('button')) return;
@@ -251,20 +252,64 @@ function stopGlobalInteraction() {
 }
 
 function updateNoteColor(id, color) {
-    const notes = getActiveNotes(); const n = notes.find(n => n.id === id);
-    if (n) { n.color = color; debouncedSave(); renderNotes(); }
+    let n = null;
+    // Find note in all tabs as a fallback for robustness
+    for (const tab of tabs) {
+        n = (tab.notes || []).find(note => note.id === id);
+        if (n) break;
+    }
+    
+    if (n) {
+        n.color = color;
+        debouncedSave();
+        
+        // Immediate DOM update for visual feedback even if renderNotes is blocked
+        const el = document.getElementById(`note-${id}`);
+        if (el) {
+            el.className = el.className.replace(/\bbg-\w+/g, '').trim() + ` bg-${color}`;
+        }
+        renderNotes();
+    }
 }
+
 
 function updateNoteContent(id, content) {
     const notes = getActiveNotes(); const n = notes.find(n => n.id === id);
     if (n) { n.content = content; debouncedSave(); }
 }
 
+function parseDateInput(val) {
+    if (!val) return '';
+    let cleaned = val.trim().replace(/[０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[^0-9/-]/g, '');
+    
+    // yyyymmdd
+    if (/^\d{8}$/.test(cleaned)) {
+        return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-${cleaned.substring(6, 8)}`;
+    }
+    
+    // mmdd -> current year
+    if (/^\d{4}$/.test(cleaned)) {
+        const now = new Date();
+        return `${now.getFullYear()}-${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}`;
+    }
+    
+    // m/d or y/m/d or m-d or y-m-d
+    const p = cleaned.split(/[-/]/);
+    if (p.length >= 2) {
+        const y = p.length === 3 ? p[0] : new Date().getFullYear();
+        const m = p.length === 3 ? p[1] : p[0];
+        const d = p.length === 3 ? p[2] : p[1];
+        return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+    return '';
+}
+
 function addNote() {
     const title = document.getElementById('note-title').value.trim();
-    const dateFull = document.getElementById('note-date-full').value.trim();
-    let fDate = ''; if (dateFull && dateFull.length === 8) fDate = `${dateFull.substring(0, 4)}-${dateFull.substring(4, 6)}-${dateFull.substring(6, 8)}`;
+    const dateInput = document.getElementById('note-date-full').value.trim();
+    const fDate = parseDateInput(dateInput);
     const notes = getActiveNotes();
+
     const n = {
         id: Date.now(), type: currentType, title: title || (currentType === 'memo' ? 'MEMO' : 'TODO'),
         date: fDate, content: '', todos: currentType === 'todo' ? [{ text: '', done: false }] : [],
@@ -332,7 +377,14 @@ function addTodoItem(noteId) {
     }
 }
 
-function handleTodoKeydown(e, noteId) { if (e.key === 'Enter') { e.preventDefault(); addTodoItem(noteId); } }
+function handleTodoKeydown(e, noteId) {
+    if (e.key === 'Enter') {
+        if (e.shiftKey || e.altKey) return; // Allow line break
+        e.preventDefault();
+        addTodoItem(noteId);
+    }
+}
+
 
 function makeTitleEditable(id, el) {
     isEditing = true; el.contentEditable = true; el.focus();
@@ -345,14 +397,13 @@ function makeDateEditable(id, el) {
     el.innerText = (n.date || '').replace(/-/g, '/') || 'yyyy/mm/dd';
     el.contentEditable = true; el.focus(); const r = document.createRange(); r.selectNodeContents(el); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
     el.onblur = () => {
-        isEditing = false; el.contentEditable = false; let val = el.innerText.trim().replace(/[^0-9/-]/g, '');
-        if (/^\d{8}$/.test(val)) val = `${val.substring(0,4)}/${val.substring(4,6)}/${val.substring(6,8)}`;
-        const p = val.split(/[-/.]/);
-        if (p.length >= 2) { const y = p.length === 3 ? p[0] : new Date().getFullYear(); const m = p.length === 3 ? p[1] : p[0]; const d = p.length === 3 ? p[2] : p[1]; n.date = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
-        else n.date = ''; debouncedSave(); renderNotes();
+        isEditing = false; el.contentEditable = false;
+        n.date = parseDateInput(el.innerText);
+        debouncedSave(); renderNotes();
     };
     el.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } };
 }
+
 
 function sortNotesByDate() {
     const tab = getActiveTab(); if (!tab) return;
@@ -459,16 +510,29 @@ function setupEventListeners() {
     const selectBtn = document.getElementById('multi-select-btn'); if (selectBtn) selectBtn.addEventListener('click', toggleSelectionMode);
     const delBtn = document.getElementById('delete-selected-btn'); if (delBtn) delBtn.addEventListener('click', deleteSelectedNotes);
     const dInp = document.getElementById('note-date-full');
-    if (dInp) { dInp.addEventListener('input', (e) => { let val = e.target.value.replace(/[０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[^0-9]/g, ''); if (e.target.value !== val) e.target.value = val; }); }
+    if (dInp) { dInp.addEventListener('input', (e) => { let val = e.target.value.replace(/[０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/[^0-9/-]/g, ''); if (e.target.value !== val) e.target.value = val; }); }
+
     
     // Sync Modal Listeners
     const syncBtn = document.getElementById('sync-btn');
     const syncModal = document.getElementById('sync-modal');
     if (syncBtn) syncBtn.addEventListener('click', () => {
         const input = document.getElementById('sync-key-input');
-        if (input) input.value = syncKey;
+        if (input) {
+            input.value = syncKey;
+            if (!input.dataset.listenerAdded) {
+                input.addEventListener('input', (e) => {
+                    let val = e.target.value
+                        .replace(/[０-９ａ-ｚＡ-Ｚ]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+                        .replace(/[^a-zA-Z0-9]/g, '');
+                    if (e.target.value !== val) e.target.value = val;
+                });
+                input.dataset.listenerAdded = 'true';
+            }
+        }
         syncModal.classList.add('show');
     });
+
     const cancelSync = document.getElementById('cancel-sync');
     if (cancelSync) cancelSync.addEventListener('click', () => syncModal.classList.remove('show'));
     const saveSync = document.getElementById('save-sync');
