@@ -369,17 +369,28 @@ function sortNotesByDate() {
     debouncedSave(); renderNotes();
 }
 
-function moveTab(id, direction) {
-    const index = tabs.findIndex(t => t.id == id);
-    if (index === -1) return;
-    if (direction === 'left' && index > 0) {
-        [tabs[index - 1], tabs[index]] = [tabs[index], tabs[index - 1]];
-    } else if (direction === 'right' && index < tabs.length - 1) {
-        [tabs[index], tabs[index + 1]] = [tabs[index + 1], tabs[index]];
-    }
-    debouncedSave();
-    renderTabs();
+let draggedTabId = null;
+function handleTabDragStart(e, id) {
+    draggedTabId = id;
+    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.classList.add('dragging-tab');
 }
+function handleTabDragOver(e) { e.preventDefault(); return false; }
+function handleTabDrop(e, targetId) {
+    e.stopPropagation();
+    if (draggedTabId && draggedTabId !== targetId) {
+        const fromIdx = tabs.findIndex(t => t.id == draggedTabId);
+        const toIdx = tabs.findIndex(t => t.id == targetId);
+        if (fromIdx !== -1 && toIdx !== -1) {
+            const [movedTab] = tabs.splice(fromIdx, 1);
+            tabs.splice(toIdx, 0, movedTab);
+            debouncedSave();
+            renderTabs();
+        }
+    }
+    return false;
+}
+function handleTabDragEnd(e) { e.currentTarget.classList.remove('dragging-tab'); draggedTabId = null; }
 
 function renderTabs() {
     if (isEditing) return;
@@ -387,15 +398,20 @@ function renderTabs() {
     list.innerHTML = '';
     tabs.forEach((tab, index) => {
         const el = document.createElement('div'); el.className = `tab-item ${tab.id == activeTabId ? 'active' : ''}`;
-        el.addEventListener('click', () => switchTab(tab.id)); el.addEventListener('dblclick', (e) => { e.stopPropagation(); makeTabNameEditable(el, tab.id); });
+        el.draggable = true;
+        el.addEventListener('click', () => switchTab(tab.id)); 
+        el.addEventListener('dblclick', (e) => { e.stopPropagation(); makeTabNameEditable(el, tab.id); });
         el.addEventListener('contextmenu', (e) => e.preventDefault());
+        el.addEventListener('dragstart', (e) => handleTabDragStart(e, tab.id));
+        el.addEventListener('dragover', (e) => handleTabDragOver(e));
+        el.addEventListener('drop', (e) => handleTabDrop(e, tab.id));
+        el.addEventListener('dragend', (e) => handleTabDragEnd(e));
+
         let timer; el.addEventListener('touchstart', (e) => { timer = setTimeout(() => { makeTabNameEditable(el, tab.id); }, 600); }, { passive: true });
         el.addEventListener('touchend', () => clearTimeout(timer)); el.addEventListener('touchmove', () => clearTimeout(timer));
         el.innerHTML = `
-            ${index > 0 ? `<span class="tab-move-btn" onclick="event.stopPropagation(); moveTab('${tab.id}', 'left')"><i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i></span>` : '<span style="width:18px"></span>'}
             <span class="tab-name">${tab.name}</span>
             <div class="tab-actions">
-                ${index < tabs.length - 1 ? `<span class="tab-move-btn" onclick="event.stopPropagation(); moveTab('${tab.id}', 'right')"><i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i></span>` : '<span style="width:18px"></span>'}
                 ${tabs.length > 1 ? `<span class="tab-delete-btn" onclick="event.stopPropagation(); deleteTab('${tab.id}')"><i data-lucide="x" style="width: 14px; height: 14px;"></i></span>` : ''}
             </div>
         `;
