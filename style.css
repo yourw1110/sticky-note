@@ -329,6 +329,43 @@ i:empty ~ .fallback-icon {
     opacity: 1;
 }
 
+.tab-move-btn {
+    opacity: 0;
+    transition: opacity 0.2s;
+    color: var(--text-light);
+    padding: 2px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.tab-item:hover .tab-move-btn {
+    opacity: 0.6;
+}
+
+.tab-move-btn:hover {
+    opacity: 1 !important;
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--primary-color);
+}
+
+.tab-item.active .tab-move-btn {
+    color: white;
+}
+
+.tab-item.active .tab-move-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.tab-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .tab-item .tab-delete-btn:hover {
     background: rgba(231, 76, 60, 0.1);
     color: #e74c3c;

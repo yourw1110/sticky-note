@@ -202,7 +202,7 @@ function createNoteElement(note) {
     const toggle = el.querySelector('.menu-toggle'); const menu = el.querySelector('.note-menu');
     toggle.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.note-menu.show').forEach(m => { if (m !== menu) m.classList.remove('show'); }); menu.classList.toggle('show'); });
     el.querySelector('.delete-action-icon').addEventListener('click', (e) => { e.stopPropagation(); deleteNote(note.id); });
-    el.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', (e) => { e.stopPropagation(); changeNoteColor(note.id, sw.dataset.color); }));
+    el.querySelectorAll('.swatch').forEach(sw => sw.addEventListener('click', (e) => { e.stopPropagation(); updateNoteColor(note.id, sw.dataset.color); }));
     el.addEventListener('mousedown', (e) => handleStartInteraction(e, el, note)); el.addEventListener('touchstart', (e) => handleStartInteraction(e, el, note), { passive: false });
     const res = el.querySelector('.resizer'); res.addEventListener('mousedown', (e) => handleStartResize(e, el, note)); res.addEventListener('touchstart', (e) => handleStartResize(e, el, note), { passive: false });
     if (note.width) el.style.width = `${note.width}px`; if (note.height) el.style.height = `${note.height}px`;
@@ -369,17 +369,36 @@ function sortNotesByDate() {
     debouncedSave(); renderNotes();
 }
 
+function moveTab(id, direction) {
+    const index = tabs.findIndex(t => t.id == id);
+    if (index === -1) return;
+    if (direction === 'left' && index > 0) {
+        [tabs[index - 1], tabs[index]] = [tabs[index], tabs[index - 1]];
+    } else if (direction === 'right' && index < tabs.length - 1) {
+        [tabs[index], tabs[index + 1]] = [tabs[index + 1], tabs[index]];
+    }
+    debouncedSave();
+    renderTabs();
+}
+
 function renderTabs() {
     if (isEditing) return;
     const list = document.getElementById('tabs-list'); if (!list) return;
     list.innerHTML = '';
-    tabs.forEach(tab => {
+    tabs.forEach((tab, index) => {
         const el = document.createElement('div'); el.className = `tab-item ${tab.id == activeTabId ? 'active' : ''}`;
         el.addEventListener('click', () => switchTab(tab.id)); el.addEventListener('dblclick', (e) => { e.stopPropagation(); makeTabNameEditable(el, tab.id); });
         el.addEventListener('contextmenu', (e) => e.preventDefault());
         let timer; el.addEventListener('touchstart', (e) => { timer = setTimeout(() => { makeTabNameEditable(el, tab.id); }, 600); }, { passive: true });
         el.addEventListener('touchend', () => clearTimeout(timer)); el.addEventListener('touchmove', () => clearTimeout(timer));
-        el.innerHTML = `<span class="tab-name">${tab.name}</span>${tabs.length > 1 ? `<span class="tab-delete-btn" onclick="event.stopPropagation(); deleteTab('${tab.id}')"><i data-lucide="x" style="width: 14px; height: 14px;"></i></span>` : ''}`;
+        el.innerHTML = `
+            ${index > 0 ? `<span class="tab-move-btn" onclick="event.stopPropagation(); moveTab('${tab.id}', 'left')"><i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i></span>` : '<span style="width:18px"></span>'}
+            <span class="tab-name">${tab.name}</span>
+            <div class="tab-actions">
+                ${index < tabs.length - 1 ? `<span class="tab-move-btn" onclick="event.stopPropagation(); moveTab('${tab.id}', 'right')"><i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i></span>` : '<span style="width:18px"></span>'}
+                ${tabs.length > 1 ? `<span class="tab-delete-btn" onclick="event.stopPropagation(); deleteTab('${tab.id}')"><i data-lucide="x" style="width: 14px; height: 14px;"></i></span>` : ''}
+            </div>
+        `;
         list.appendChild(el);
     });
     safeCreateIcons(list);
