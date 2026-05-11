@@ -189,12 +189,13 @@ function createNoteElement(note) {
     } else {
         const aT = (note.todos || []).filter(t => !t.done); const cT = (note.todos || []).filter(t => t.done);
         cHtml = `<div class="note-content"><div id="todo-list-${note.id}">
-            ${aT.map((t, i) => { const o = note.todos.indexOf(t); return `<div class="todo-item"><input type="checkbox" onchange="toggleTodo(${note.id}, ${o})"><span contenteditable="true" onfocus="isEditing=true" onblur="isEditing=false; updateTodoText(${note.id}, ${o}, this.innerText)" onkeydown="handleTodoKeydown(event, ${note.id})">${t.text}</span><button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${o})"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button></div>` }).join('')}
+            ${aT.map((t, i) => { const o = note.todos.indexOf(t); return `<div class="todo-item"><input type="checkbox" onchange="toggleTodo(${note.id}, ${o})"><div class="todo-text" contenteditable="true" onfocus="isEditing=true" onblur="isEditing=false; updateTodoText(${note.id}, ${o}, this.innerText)" onkeydown="handleTodoKeydown(event, ${note.id})">${t.text}</div><button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${o})"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button></div>` }).join('')}
             <button class="add-todo-btn" onclick="addTodoItem(${note.id})"><i data-lucide="plus" style="width: 16px; height: 16px;"></i></button>
             <div class="completed-todos" style="margin-top: 12px; opacity: 0.6;">
-                ${cT.map((t, i) => { const o = note.todos.indexOf(t); return `<div class="todo-item checked"><input type="checkbox" checked onchange="toggleTodo(${note.id}, ${o})"><span contenteditable="true" onfocus="isEditing=true" onblur="isEditing=false; updateTodoText(${note.id}, ${o}, this.innerText)">${t.text}</span><button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${o})"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button></div>` }).join('')}
+                ${cT.map((t, i) => { const o = note.todos.indexOf(t); return `<div class="todo-item checked"><input type="checkbox" checked onchange="toggleTodo(${note.id}, ${o})"><div class="todo-text" contenteditable="true" onfocus="isEditing=true" onblur="isEditing=false; updateTodoText(${note.id}, ${o}, this.innerText)">${t.text}</div><button class="todo-delete-btn" onclick="deleteTodoItem(${note.id}, ${o})"><i data-lucide="x" style="width: 14px; height: 14px;"></i></button></div>` }).join('')}
             </div></div></div>`;
     }
+
 
     el.innerHTML = `<div class="note-header">${dDisp}${tDisp}</div>${cHtml}<div class="note-actions"><button class="action-btn menu-toggle"><i data-lucide="more-horizontal" style="width: 18px; height: 18px;"></i></button><div class="note-menu"><div class="color-swatches"><div class="swatch bg-yellow" data-color="yellow"></div><div class="swatch bg-pink" data-color="pink"></div><div class="swatch bg-blue" data-color="blue"></div><div class="swatch bg-green" data-color="green"></div><div class="swatch bg-purple" data-color="purple"></div></div><div class="menu-divider"></div><div class="delete-action-icon" title="削除"><i data-lucide="trash-2" style="width: 16px; height: 16px;"></i></div></div></div><div class="resizer"></div>`;
     el.querySelector('.note-title-text').addEventListener('dblclick', (e) => makeTitleEditable(note.id, e.target));
@@ -370,10 +371,11 @@ function addTodoItem(noteId) {
         n.todos.push({ text: '', done: false }); debouncedSave(); renderNotes();
         setTimeout(() => {
             const el = document.getElementById(`note-${noteId}`); if (el) {
-                const spans = el.querySelectorAll('.todo-item span[contenteditable="true"]');
-                const last = spans[spans.length - 1 - (n.todos.filter(t => t.done).length)]; if (last) last.focus();
+                const items = el.querySelectorAll('.todo-item .todo-text');
+                const last = items[items.length - 1 - (n.todos.filter(t => t.done).length)]; if (last) last.focus();
             }
         }, 50);
+
     }
 }
 

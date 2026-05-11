@@ -501,14 +501,16 @@ i:empty ~ .fallback-icon {
     cursor: pointer;
 }
 
-.todo-item span {
+.todo-text {
     flex: 1;
     font-size: 0.9rem;
     cursor: text;
-    /* Indicate editability */
+    white-space: pre-wrap;
+    word-break: break-all;
+    outline: none;
 }
 
-.todo-item.checked span {
+.todo-item.checked .todo-text {
     text-decoration: line-through;
     opacity: 0.5;
 }
