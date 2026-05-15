@@ -465,6 +465,33 @@ i:empty ~ .fallback-icon {
     line-height: 1.5;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
+}
+
+/* Custom scrollbar styling */
+.note-content::-webkit-scrollbar,
+.note-content textarea::-webkit-scrollbar {
+    width: 6px;
+}
+
+.note-content::-webkit-scrollbar-track,
+.note-content textarea::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.note-content::-webkit-scrollbar-thumb,
+.note-content textarea::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.note-content::-webkit-scrollbar-thumb:hover,
+.note-content textarea::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.2);
 }
 
 .note-content textarea {
@@ -478,15 +505,10 @@ i:empty ~ .fallback-icon {
     font-size: inherit;
     outline: none;
     color: inherit;
-    overflow: hidden;
+    overflow-y: auto;
     word-wrap: break-word;
-    scrollbar-width: none;
-    /* Firefox */
-}
-
-.note-content textarea::-webkit-scrollbar {
-    display: none;
-    /* Chrome/Safari */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
 }
 
 .todo-item {
